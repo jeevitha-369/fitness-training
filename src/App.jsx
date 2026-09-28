@@ -197,8 +197,8 @@ function App() {
   // CURRENT WORKOUT
   // =========================
 
-   const currentPlan =
-  workoutPlans[selectedWorkout || workoutLevel] ||
+    const currentPlan =
+  workoutPlans[selectedWorkout || fitnessLevel] ||
   workoutPlans.Beginner;
 
   const customExerciseObjects = customExercises.map((exercise) => ({
@@ -785,8 +785,8 @@ function App() {
               <h3>Today's Exercises</h3>
 
               <p>
-                Workout Level:{" "}
-                <strong>{workoutLevel}</strong>
+               Workout Level:{" "}
+<strong>{selectedWorkout || fitnessLevel}</strong>
               </p>
 
               {!showAddForm && (
