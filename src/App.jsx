@@ -2,15 +2,35 @@
 import "./App.css";
 
 function App() {
+  // =========================
+  // PAGE
+  // =========================
+
   const [page, setPage] = useState("dashboard");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // =========================
+  // WORKOUT STATE
+  // =========================
 
   const [selectedWorkout, setSelectedWorkout] = useState(null);
 
   const [completedExercises, setCompletedExercises] = useState([]);
 
+  const [workoutLevel, setWorkoutLevel] = useState(() => {
+    return localStorage.getItem("workoutLevel") || "Beginner";
+  });
+
   // =========================
-  // CUSTOM EXERCISES
+  // CUSTOM WORKOUT
   // =========================
+
+  const [customWorkoutName, setCustomWorkoutName] = useState(() => {
+    return (
+      localStorage.getItem("customWorkoutName") ||
+      "My Custom Workout"
+    );
+  });
 
   const [customExercises, setCustomExercises] = useState(() => {
     const saved = localStorage.getItem("customExercises");
@@ -39,14 +59,21 @@ function App() {
     }
   });
 
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const [newExercise, setNewExercise] = useState("");
+
+  const [newTargetValue, setNewTargetValue] = useState("");
+
+  const [newTargetType, setNewTargetType] = useState("reps");
+
   // =========================
-  // ADD EXERCISE
+  // EDIT CUSTOM EXERCISE
   // =========================
 
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newExercise, setNewExercise] = useState("");
-  const [newTargetValue, setNewTargetValue] = useState("");
-  const [newTargetType, setNewTargetType] = useState("reps");
+  const [editingExercise, setEditingExercise] = useState("");
+
+  const [editedExercise, setEditedExercise] = useState("");
 
   // =========================
   // WORKOUT HISTORY
@@ -67,13 +94,6 @@ function App() {
   });
 
   // =========================
-  // EDIT EXERCISE
-  // =========================
-
-  const [editingExercise, setEditingExercise] = useState("");
-  const [editedExercise, setEditedExercise] = useState("");
-
-  // =========================
   // PROFILE
   // =========================
 
@@ -87,10 +107,6 @@ function App() {
 
   const [fitnessGoal, setFitnessGoal] = useState(() => {
     return localStorage.getItem("fitnessGoal") || "Stay Active";
-  });
-
-  const [workoutLevel, setWorkoutLevel] = useState(() => {
-    return localStorage.getItem("workoutLevel") || "Beginner";
   });
 
   // =========================
@@ -194,23 +210,158 @@ function App() {
   };
 
   // =========================
-  // CURRENT WORKOUT
+  // BODY PART WORKOUTS
   // =========================
 
-    const currentPlan =
-  workoutPlans[selectedWorkout || fitnessLevel] ||
-  workoutPlans.Beginner;
+  const bodyPartWorkouts = {
+    Legs: [
+      {
+        name: "Bodyweight Squats",
+        target: "10 reps",
+        calories: 8,
+      },
+      {
+        name: "Lunges",
+        target: "10 reps",
+        calories: 8,
+      },
+      {
+        name: "Glute Bridges",
+        target: "12 reps",
+        calories: 7,
+      },
+      {
+        name: "Calf Raises",
+        target: "15 reps",
+        calories: 6,
+      },
+    ],
 
-  const customExerciseObjects = customExercises.map((exercise) => ({
-    name: exercise.name,
-    target: exercise.targetValue + " " + exercise.targetType,
-    calories: exercise.calories || 6,
-  }));
+    Arms: [
+      {
+        name: "Wall Push Ups",
+        target: "8 reps",
+        calories: 5,
+      },
+      {
+        name: "Arm Circles",
+        target: "20 reps",
+        calories: 4,
+      },
+      {
+        name: "Tricep Dips",
+        target: "8 reps",
+        calories: 6,
+      },
+      {
+        name: "Bicep Curls",
+        target: "10 reps",
+        calories: 6,
+      },
+    ],
 
-  const exercises = [
-    ...currentPlan,
-    ...customExerciseObjects,
-  ];
+    Chest: [
+      {
+        name: "Wall Push Ups",
+        target: "10 reps",
+        calories: 5,
+      },
+      {
+        name: "Push Ups",
+        target: "8 reps",
+        calories: 7,
+      },
+      {
+        name: "Incline Push Ups",
+        target: "10 reps",
+        calories: 6,
+      },
+    ],
+
+    Back: [
+      {
+        name: "Bird Dog",
+        target: "10 reps",
+        calories: 5,
+      },
+      {
+        name: "Superman",
+        target: "10 reps",
+        calories: 6,
+      },
+      {
+        name: "Reverse Snow Angels",
+        target: "10 reps",
+        calories: 5,
+      },
+    ],
+
+    Shoulders: [
+      {
+        name: "Arm Circles",
+        target: "20 reps",
+        calories: 4,
+      },
+      {
+        name: "Wall Push Ups",
+        target: "8 reps",
+        calories: 5,
+      },
+      {
+        name: "Shoulder Taps",
+        target: "10 reps",
+        calories: 5,
+      },
+    ],
+
+    Core: [
+      {
+        name: "Plank",
+        target: "20 seconds",
+        calories: 5,
+      },
+      {
+        name: "Bird Dog",
+        target: "10 reps",
+        calories: 5,
+      },
+      {
+        name: "Dead Bug",
+        target: "10 reps",
+        calories: 5,
+      },
+    ],
+  };
+
+  // =========================
+  // CUSTOM EXERCISE OBJECTS
+  // =========================
+
+  const customExerciseObjects = customExercises.map(
+    (exercise) => ({
+      name: exercise.name,
+      target:
+        exercise.targetValue +
+        " " +
+        exercise.targetType,
+      calories: exercise.calories || 6,
+    })
+  );
+
+  // =========================
+  // CURRENT PLAN
+  // =========================
+
+  const currentPlan =
+    selectedWorkout === "Custom"
+      ? customExerciseObjects
+      : selectedWorkout === "Rest Day"
+      ? []
+      : bodyPartWorkouts[selectedWorkout] ||
+        workoutPlans[selectedWorkout || fitnessLevel] ||
+        workoutPlans.Beginner;
+
+  const exercises = currentPlan;
 
   // =========================
   // LOCAL STORAGE
@@ -232,20 +383,38 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem("profileName", name);
-    localStorage.setItem("fitnessLevel", fitnessLevel);
-    localStorage.setItem("fitnessGoal", fitnessGoal);
+    localStorage.setItem(
+      "fitnessLevel",
+      fitnessLevel
+    );
+    localStorage.setItem(
+      "fitnessGoal",
+      fitnessGoal
+    );
   }, [name, fitnessLevel, fitnessGoal]);
 
   useEffect(() => {
-    localStorage.setItem("workoutLevel", workoutLevel);
+    localStorage.setItem(
+      "workoutLevel",
+      workoutLevel
+    );
   }, [workoutLevel]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "customWorkoutName",
+      customWorkoutName
+    );
+  }, [customWorkoutName]);
 
   // =========================
   // COMPLETE EXERCISE
   // =========================
 
   const toggleExercise = (exerciseName) => {
-    if (completedExercises.includes(exerciseName)) {
+    if (
+      completedExercises.includes(exerciseName)
+    ) {
       setCompletedExercises(
         completedExercises.filter(
           (item) => item !== exerciseName
@@ -260,7 +429,7 @@ function App() {
   };
 
   // =========================
-  // OPEN ADD FORM
+  // OPEN CUSTOM ADD FORM
   // =========================
 
   const openAddForm = () => {
@@ -271,7 +440,7 @@ function App() {
   };
 
   // =========================
-  // SAVE NEW EXERCISE
+  // SAVE CUSTOM EXERCISE
   // =========================
 
   const saveNewExercise = () => {
@@ -283,12 +452,15 @@ function App() {
       return;
     }
 
-    if (!Number.isFinite(targetValue) || targetValue <= 0) {
+    if (
+      !Number.isFinite(targetValue) ||
+      targetValue <= 0
+    ) {
       alert("Please enter a valid target value.");
       return;
     }
 
-    const alreadyExists = exercises.some(
+    const alreadyExists = customExercises.some(
       (exercise) =>
         exercise.name.toLowerCase() ===
         exerciseName.toLowerCase()
@@ -324,19 +496,21 @@ function App() {
   const deleteExercise = (exerciseName) => {
     setCustomExercises(
       customExercises.filter(
-        (exercise) => exercise.name !== exerciseName
+        (exercise) =>
+          exercise.name !== exerciseName
       )
     );
 
     setCompletedExercises(
       completedExercises.filter(
-        (exercise) => exercise !== exerciseName
+        (exercise) =>
+          exercise !== exerciseName
       )
     );
   };
 
   // =========================
-  // EDIT EXERCISE NAME
+  // EDIT CUSTOM EXERCISE
   // =========================
 
   const startEdit = (exerciseName) => {
@@ -352,7 +526,7 @@ function App() {
       return;
     }
 
-    const exists = exercises.some(
+    const exists = customExercises.some(
       (exercise) =>
         exercise.name.toLowerCase() ===
           value.toLowerCase() &&
@@ -366,7 +540,9 @@ function App() {
 
     setCustomExercises(
       customExercises.map((exercise) => {
-        if (exercise.name === editingExercise) {
+        if (
+          exercise.name === editingExercise
+        ) {
           return {
             ...exercise,
             name: value,
@@ -379,7 +555,9 @@ function App() {
 
     setCompletedExercises(
       completedExercises.map((exercise) => {
-        if (exercise === editingExercise) {
+        if (
+          exercise === editingExercise
+        ) {
           return value;
         }
 
@@ -390,17 +568,19 @@ function App() {
     setEditingExercise("");
     setEditedExercise("");
   };
-  // =========================
-// DELETE HISTORY ITEM
-// =========================
 
- const deleteHistoryItem = (indexToDelete) => {
-  setHistory((previousHistory) =>
-    previousHistory.filter(
-      (_, index) => index !== indexToDelete
-    )
-  );
-};
+  // =========================
+  // DELETE HISTORY ITEM
+  // =========================
+
+  const deleteHistoryItem = (indexToDelete) => {
+    setHistory((previousHistory) =>
+      previousHistory.filter(
+        (_, index) =>
+          index !== indexToDelete
+      )
+    );
+  };
 
   // =========================
   // PROGRESS
@@ -423,12 +603,15 @@ function App() {
     completedExercises.reduce(
       (total, exerciseName) => {
         const exercise = exercises.find(
-          (item) => item.name === exerciseName
+          (item) =>
+            item.name === exerciseName
         );
 
         return (
           total +
-          (exercise ? exercise.calories : 6)
+          (exercise
+            ? exercise.calories
+            : 6)
         );
       },
       0
@@ -439,41 +622,57 @@ function App() {
   // =========================
 
   const totalWorkouts = history.length;
-  const achievements = {
-  firstWorkout: totalWorkouts >= 1,
-  fiveWorkouts: totalWorkouts >= 5,
-  tenWorkouts: totalWorkouts >= 10,
-};
 
   const totalExercisesCompleted =
     history.reduce(
       (total, workout) =>
-        total + workout.count,
+        total + (workout.count || 0),
       0
     );
 
   const totalCaloriesBurned =
     history.reduce(
       (total, workout) =>
-        total + (workout.calories || 0),
+        total +
+        (workout.calories || 0),
       0
     );
+
+  const achievements = {
+    firstWorkout:
+      totalWorkouts >= 1,
+
+    fiveWorkouts:
+      totalWorkouts >= 5,
+
+    tenWorkouts:
+      totalWorkouts >= 10,
+  };
 
   // =========================
   // SAVE WORKOUT
   // =========================
 
   const saveWorkout = () => {
-     
     if (completedExercises.length === 0) {
       return;
     }
 
     const workout = {
-      date: new Date().toLocaleDateString(),
-      level: workoutLevel,
-      count: completedExercises.length,
-      calories: caloriesBurned,
+      date:
+        new Date().toLocaleDateString(),
+
+      level:
+        selectedWorkout === "Custom"
+          ? customWorkoutName
+          : selectedWorkout ||
+            workoutLevel,
+
+      count:
+        completedExercises.length,
+
+      calories:
+        caloriesBurned,
     };
 
     setHistory([
@@ -483,7 +682,9 @@ function App() {
 
     setCompletedExercises([]);
 
-    alert("Workout saved successfully!");
+    alert(
+      "Workout saved successfully!"
+    );
   };
 
   // =========================
@@ -496,44 +697,133 @@ function App() {
       {/* =========================
           NAVBAR
       ========================= */}
+       <header className="navbar">
 
-      <header className="navbar">
+        <div className="navbar-brand">
+          <h1>FitTrack</h1>
+          <span>Fitness Tracker</span>
+        </div>
 
-        <h1>💪 FitTrack</h1>
-
-        <div className="nav-buttons">
+        <nav className="nav-buttons">
 
           <button
-            onClick={() => setPage("dashboard")}
+            className={
+              page === "dashboard"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() =>
+              setPage("dashboard")
+            }
           >
             Dashboard
           </button>
 
           <button
-            onClick={() => setPage("workouts")}
+            className={
+              page === "workouts"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() =>
+              setPage("workouts")
+            }
           >
             Workouts
           </button>
 
           <button
-            onClick={() => setPage("tracker")}
+            className={
+              page === "customWorkout"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() =>
+              setPage("customWorkout")
+            }
+          >
+            Custom
+          </button>
+
+          <button
+            className={
+              page === "tracker"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() =>
+              setPage("tracker")
+            }
           >
             Tracker
           </button>
 
           <button
-            onClick={() => setPage("progress")}
+            className={
+              page === "progress"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() =>
+              setPage("progress")
+            }
           >
             Progress
           </button>
 
           <button
-            onClick={() => setPage("profile")}
+            className={
+              page === "profile"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() =>
+              setPage(isLoggedIn ? "profile" : "login")
+            }
           >
             Profile
           </button>
 
-        </div>
+          {isLoggedIn && (
+            <button
+              className="logout-btn"
+              onClick={() => {
+                const confirmLogout = window.confirm(
+                  "Are you sure you want to logout?"
+                );
+
+                if (confirmLogout) {
+                  setIsLoggedIn(false);
+                  setPage("dashboard");
+                  setCompletedExercises([]);
+                }
+              }}
+            >
+              Logout
+            </button>
+          )}
+
+        </nav>
+
+        {!isLoggedIn && (
+          <div className="auth-buttons">
+
+            <button
+              className="login-btn"
+              onClick={() => setPage("login")}
+            >
+              Login
+            </button>
+
+            <button
+              className="signup-btn"
+              onClick={() => setPage("signup")}
+            >
+              Sign Up
+            </button>
+
+          </div>
+        )}
 
       </header>
 
@@ -546,36 +836,57 @@ function App() {
 
           <div className="welcome-section">
 
-            <h2>
-              Welcome
-              {name ? ", " + name : ""}! 👋
-            </h2>
+            <p className="dashboard-label">
+              FITNESS DASHBOARD
+            </p>
 
+             <h2>
+  {isLoggedIn
+    ? `Welcome, ${name || "Jeevi D"}!`
+    : "Welcome to FitTrack!"}
+</h2>
             <p>
-              Your personal fitness companion.
+              Stay consistent, track your
+              progress, and reach your
+              fitness goals.
             </p>
 
           </div>
 
           <div className="dashboard-grid">
 
-            <div className="dashboard-card">
+            <div className="dashboard-card workout-card">
 
-              <h3>🏋️ Today's Workout</h3>
+              <div className="card-heading">
+                <span>
+                  Today's Workout
+                </span>
+              </div>
 
-              <h2>{workoutLevel}</h2>
+              <h2>
+                {selectedWorkout ===
+                "Custom"
+                  ? customWorkoutName
+                  : selectedWorkout ||
+                    workoutLevel}
+              </h2>
 
               <p>
-                Complete your daily exercises and
-                stay active.
+                Complete your daily
+                exercises and stay active.
               </p>
 
-              <p>
-                🎯 {exercises.length} exercises
-              </p>
+              <div className="card-detail">
+                {selectedWorkout ===
+                "Rest Day"
+                  ? "Recovery day"
+                  : `${exercises.length} exercises available`}
+              </div>
 
               <button
-                onClick={() => setPage("tracker")}
+                onClick={() =>
+                  setPage("tracker")
+                }
               >
                 Start Workout
               </button>
@@ -584,15 +895,24 @@ function App() {
 
             <div className="dashboard-card">
 
-              <h3>📊 Current Progress</h3>
+              <div className="card-heading">
+                <span>
+                  Current Progress
+                </span>
+              </div>
 
               <div className="dashboard-progress">
-                {progress}%
+                {selectedWorkout ===
+                "Rest Day"
+                  ? "—"
+                  : `${progress}%`}
               </div>
 
               <p>
-                {completedExercises.length} /{" "}
-                {exercises.length} completed
+                {selectedWorkout ===
+                "Rest Day"
+                  ? "No exercises scheduled today"
+                  : `${completedExercises.length} of ${exercises.length} exercises completed`}
               </p>
 
               <div className="dashboard-progress-bar">
@@ -600,25 +920,33 @@ function App() {
                 <div
                   className="dashboard-progress-fill"
                   style={{
-                    width: progress + "%",
+                    width:
+                      progress + "%",
                   }}
                 ></div>
 
               </div>
 
-              <p>
-                {progress === 0
-                  ? "Start your workout!"
+              <p className="progress-message">
+                {selectedWorkout ===
+                "Rest Day"
+                  ? "Take time to recover."
+                  : progress === 0
+                  ? "Start your workout to begin."
                   : progress === 100
-                  ? "Workout completed! 🎉"
-                  : "Keep going! 💪"}
+                  ? "Workout completed!"
+                  : "Keep going and finish your workout."}
               </p>
 
             </div>
 
-            <div className="dashboard-card">
+            <div className="dashboard-card stat-card">
 
-              <h3>🔥 Total Calories</h3>
+              <div className="card-heading">
+                <span>
+                  Total Calories
+                </span>
+              </div>
 
               <div className="dashboard-number">
                 {totalCaloriesBurned}
@@ -630,9 +958,13 @@ function App() {
 
             </div>
 
-            <div className="dashboard-card">
+            <div className="dashboard-card stat-card">
 
-              <h3>🏆 Saved Workouts</h3>
+              <div className="card-heading">
+                <span>
+                  Saved Workouts
+                </span>
+              </div>
 
               <div className="dashboard-number">
                 {totalWorkouts}
@@ -646,29 +978,46 @@ function App() {
 
           </div>
 
-           <div className="dashboard-info">
+          <div className="dashboard-info">
 
-  <div className="info-card">
-    <h3>🎯 Fitness Level</h3>
-    <p>{fitnessLevel}</p>
-  </div>
+            <div className="info-card">
+              <span>Fitness Level</span>
+              <strong>
+                {fitnessLevel}
+              </strong>
+            </div>
 
-  <div className="info-card">
-    <h3>💪 Current Workout</h3>
-    <p>{selectedWorkout || workoutLevel}</p>
-  </div>
+            <div className="info-card">
+              <span>Current Workout</span>
+              <strong>
+                {selectedWorkout ===
+                "Custom"
+                  ? customWorkoutName
+                  : selectedWorkout ||
+                    workoutLevel}
+              </strong>
+            </div>
 
-  <div className="info-card">
-    <h3>🏆 Fitness Goal</h3>
-    <p>{fitnessGoal}</p>
-  </div>
+            <div className="info-card">
+              <span>Fitness Goal</span>
+              <strong>
+                {fitnessGoal}
+              </strong>
+            </div>
 
-  <div className="info-card">
-    <h3>📅 Exercises Available</h3>
-    <p>{exercises.length}</p>
-  </div>
+            <div className="info-card">
+              <span>
+                Exercises Available
+              </span>
+              <strong>
+                {selectedWorkout ===
+                "Rest Day"
+                  ? 0
+                  : exercises.length}
+              </strong>
+            </div>
 
-</div>
+          </div>
 
         </main>
       )}
@@ -678,84 +1027,318 @@ function App() {
       ========================= */}
 
       {page === "workouts" && (
-        <main className="dashboard">
+        <main className="workouts-page">
 
-          <h2>Workout Plans</h2>
+          <div className="workouts-header">
 
-          <p>
-            Choose a workout based on your fitness level.
-          </p>
+            <p className="page-label">
+              WORKOUT PLANS
+            </p>
 
-          <div className="cards">
+            <h2>
+              Choose Your Workout
+            </h2>
 
-            <div className="card">
+            <p>
+              Select a workout based on
+              your current fitness level.
+            </p>
 
-              <h3>🌱 Beginner</h3>
+          </div>
 
-              <p>⏱ 20 minutes</p>
+          <div className="workout-cards">
+
+            {/* Beginner */}
+
+            <div className="workout-card">
+
+              <div className="workout-card-top">
+
+                <span className="workout-level beginner-level">
+                  Beginner
+                </span>
+
+                <span className="workout-duration">
+                  20 min
+                </span>
+
+              </div>
+
+              <h3>
+                Start with the basics
+              </h3>
 
               <p>
-                Simple exercises for beginners.
+                Simple exercises designed
+                to help you build strength,
+                confidence, and consistency.
               </p>
 
-              <p>🎯 5 exercises</p>
+              <div className="workout-details">
+
+                <span>
+                  {workoutPlans.Beginner.length} exercises
+                </span>
+
+                <span>
+                  Easy intensity
+                </span>
+
+              </div>
 
               <button
-              onClick={() => {
-  setSelectedWorkout("Beginner");
-  setCompletedExercises([]);
-  setPage("tracker");
-}}
+                onClick={() => {
+                  setSelectedWorkout(
+                    "Beginner"
+                  );
+
+                  setWorkoutLevel(
+                    "Beginner"
+                  );
+
+                  setCompletedExercises(
+                    []
+                  );
+
+                  setPage("tracker");
+                }}
               >
                 Start Beginner
               </button>
 
             </div>
 
-            <div className="card">
+            {/* Intermediate */}
 
-              <h3>🔥 Intermediate</h3>
+            <div className="workout-card">
 
-              <p>⏱ 30 minutes</p>
+              <div className="workout-card-top">
+
+                <span className="workout-level intermediate-level">
+                  Intermediate
+                </span>
+
+                <span className="workout-duration">
+                  30 min
+                </span>
+
+              </div>
+
+              <h3>
+                Build your strength
+              </h3>
 
               <p>
-                Moderate exercises for regular training.
+                A balanced workout for
+                users who already have
+                regular training experience.
               </p>
 
-              <p>🎯 6 exercises</p>
+              <div className="workout-details">
+
+                <span>
+                  {workoutPlans.Intermediate.length} exercises
+                </span>
+
+                <span>
+                  Medium intensity
+                </span>
+
+              </div>
 
               <button
                 onClick={() => {
-  setSelectedWorkout("Intermediate");
-  setCompletedExercises([]);
-  setPage("tracker");
-}}
+                  setSelectedWorkout(
+                    "Intermediate"
+                  );
+
+                  setWorkoutLevel(
+                    "Intermediate"
+                  );
+
+                  setCompletedExercises(
+                    []
+                  );
+
+                  setPage("tracker");
+                }}
               >
                 Start Intermediate
               </button>
 
             </div>
 
-            <div className="card">
+            {/* Advanced */}
 
-              <h3>💪 Advanced</h3>
+            <div className="workout-card">
 
-              <p>⏱ 45 minutes</p>
+              <div className="workout-card-top">
+
+                <span className="workout-level advanced-level">
+                  Advanced
+                </span>
+
+                <span className="workout-duration">
+                  45 min
+                </span>
+
+              </div>
+
+              <h3>
+                Challenge yourself
+              </h3>
 
               <p>
-                Challenging exercises for advanced training.
+                A demanding full-body
+                workout for users looking
+                for a higher training
+                intensity.
               </p>
 
-              <p>🎯 6 exercises</p>
+              <div className="workout-details">
+
+                <span>
+                  {workoutPlans.Advanced.length} exercises
+                </span>
+
+                <span>
+                  High intensity
+                </span>
+
+              </div>
 
               <button
-               onClick={() => {
-  setSelectedWorkout("Advanced");
-  setCompletedExercises([]);
-  setPage("tracker");
-}}
+                onClick={() => {
+                  setSelectedWorkout(
+                    "Advanced"
+                  );
+
+                  setWorkoutLevel(
+                    "Advanced"
+                  );
+
+                  setCompletedExercises(
+                    []
+                  );
+
+                  setPage("tracker");
+                }}
               >
                 Start Advanced
+              </button>
+
+            </div>
+
+          </div>
+
+          {/* BODY PART WORKOUTS */}
+
+          <div className="body-part-section">
+
+            <div className="body-part-heading">
+
+              <p className="page-label">
+                BODY-PART WORKOUTS
+              </p>
+
+              <h2>
+                Choose a Body Part
+              </h2>
+
+              <p>
+                Select a workout based on
+                the body part you want to
+                train.
+              </p>
+
+            </div>
+
+            <div className="body-part-cards">
+
+              {Object.keys(
+                bodyPartWorkouts
+              ).map((bodyPart) => (
+
+                <div
+                  className="body-part-card"
+                  key={bodyPart}
+                >
+
+                  <h3>
+                    {bodyPart}
+                  </h3>
+
+                  <p>
+                    {
+                      bodyPartWorkouts[
+                        bodyPart
+                      ].length
+                    }{" "}
+                    exercises
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      setSelectedWorkout(
+                        bodyPart
+                      );
+
+                      setCompletedExercises(
+                        []
+                      );
+
+                      setPage("tracker");
+                    }}
+                  >
+                    Start {bodyPart}
+                  </button>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </div>
+
+          {/* REST DAY */}
+
+          <div className="rest-day-section">
+
+            <div className="rest-day-card">
+
+              <div>
+
+                <p className="page-label">
+                  REST DAY
+                </p>
+
+                <h2>
+                  Take a Rest
+                </h2>
+
+                <p>
+                  Give your body time to
+                  recover and prepare for
+                  your next workout.
+                </p>
+
+              </div>
+
+              <button
+                onClick={() => {
+                  setSelectedWorkout(
+                    "Rest Day"
+                  );
+
+                  setCompletedExercises(
+                    []
+                  );
+
+                  setPage("tracker");
+                }}
+              >
+                Select Rest Day
               </button>
 
             </div>
@@ -766,244 +1349,263 @@ function App() {
       )}
 
       {/* =========================
-          TRACKER
+          CUSTOM WORKOUT
       ========================= */}
 
-      {page === "tracker" && (
-        <main className="dashboard">
+      {page === "customWorkout" && (
+        <main className="custom-workout-page">
 
-          <h2>Exercise Tracker</h2>
+          <div className="custom-workout-heading">
 
-          <p>
-            Complete each exercise to track your workout.
-          </p>
+            <p className="page-label">
+              CUSTOM WORKOUT
+            </p>
 
-          <div className="cards">
+            <h2>
+              Create Your Own Workout
+            </h2>
 
-            <div className="card">
+            <p>
+              Add exercises and create a
+              workout that suits your needs.
+            </p>
 
-              <h3>Today's Exercises</h3>
+          </div>
 
-              <p>
-               Workout Level:{" "}
-<strong>{selectedWorkout || fitnessLevel}</strong>
-              </p>
+          <div className="custom-workout-card">
 
-              {!showAddForm && (
-                <button
-                  onClick={openAddForm}
+            <h3>
+              Workout Name
+            </h3>
+
+            <input
+              className="custom-workout-name-input"
+              type="text"
+              value={customWorkoutName}
+              onChange={(event) =>
+                setCustomWorkoutName(
+                  event.target.value
+                )
+              }
+              placeholder="Enter workout name"
+            />
+
+            <p>
+              Add your own exercises and
+              set a target for each exercise.
+            </p>
+
+            {!showAddForm && (
+              <button
+                className="primary-btn"
+                onClick={openAddForm}
+              >
+                Add Exercise
+              </button>
+            )}
+
+            {/* ADD CUSTOM EXERCISE FORM */}
+
+            {showAddForm && (
+              <div className="custom-add-form">
+
+                <h4>
+                  Add Exercise
+                </h4>
+
+                <input
+                  type="text"
+                  placeholder="Exercise name"
+                  value={newExercise}
+                  onChange={(event) =>
+                    setNewExercise(
+                      event.target.value
+                    )
+                  }
+                />
+
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Target value"
+                  value={newTargetValue}
+                  onChange={(event) =>
+                    setNewTargetValue(
+                      event.target.value
+                    )
+                  }
+                />
+
+                <select
+                  value={newTargetType}
+                  onChange={(event) =>
+                    setNewTargetType(
+                      event.target.value
+                    )
+                  }
                 >
-                  ➕ Add Exercise
-                </button>
-              )}
+                  <option value="reps">
+                    Reps
+                  </option>
 
-              {showAddForm && (
-                <div className="add-exercise">
+                  <option value="minutes">
+                    Minutes
+                  </option>
 
-                  <h3>
-                    ➕ Add New Exercise
-                  </h3>
+                  <option value="seconds">
+                    Seconds
+                  </option>
 
-                  <div className="add-exercise-fields">
+                  <option value="steps">
+                    Steps
+                  </option>
 
-                    <div className="form-group">
+                  <option value="kilometers">
+                    Kilometers
+                  </option>
+                </select>
 
-                      <label>
-                        Exercise Name
-                      </label>
-
-                      <input
-                        type="text"
-                        placeholder="e.g. Running"
-                        value={newExercise}
-                        onChange={(event) =>
-                          setNewExercise(
-                            event.target.value
-                          )
-                        }
-                      />
-
-                    </div>
-
-                    <div className="form-group">
-
-                      <label>
-                        Target Value
-                      </label>
-
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="e.g. 30"
-                        value={newTargetValue}
-                        onChange={(event) =>
-                          setNewTargetValue(
-                            event.target.value
-                          )
-                        }
-                      />
-
-                    </div>
-
-                    <div className="form-group">
-
-                      <label>
-                        Target Type
-                      </label>
-
-                      <select
-                        value={newTargetType}
-                        onChange={(event) =>
-                          setNewTargetType(
-                            event.target.value
-                          )
-                        }
-                      >
-
-                        <option value="reps">
-                          Reps
-                        </option>
-
-                        <option value="minutes">
-                          Minutes
-                        </option>
-
-                        <option value="seconds">
-                          Seconds
-                        </option>
-
-                        <option value="steps">
-                          Steps
-                        </option>
-
-                        <option value="kilometers">
-                          Kilometers
-                        </option>
-
-                      </select>
-
-                    </div>
-
-                  </div>
-
-                  <div className="add-exercise-buttons">
-
-                    <button
-                      className="save-exercise-btn"
-                      onClick={saveNewExercise}
-                    >
-                      Save
-                    </button>
-
-                    <button
-                      className="cancel-exercise-btn"
-                      onClick={() => {
-                        setShowAddForm(false);
-                        setNewExercise("");
-                        setNewTargetValue("");
-                        setNewTargetType("reps");
-                      }}
-                    >
-                      Cancel
-                    </button>
-
-                  </div>
-
-                </div>
-              )}
-
-              {exercises.map((exercise) => (
-
-                <div
-                  className="exercise-row"
-                  key={exercise.name}
-                >
+                <div className="custom-form-buttons">
 
                   <button
-                    onClick={() =>
-                      toggleExercise(
-                        exercise.name
-                      )
+                    className="primary-btn"
+                    onClick={
+                      saveNewExercise
+                    }
+                    disabled={
+                      !newExercise.trim() ||
+                      !newTargetValue
                     }
                   >
-                    {completedExercises.includes(
-                      exercise.name
-                    )
-                      ? "✅ Completed"
-                      : "⬜ Complete"}
+                    Save Exercise
                   </button>
 
-                  <span>
-
-                    <strong>
-                      {exercise.name}
-                    </strong>
-
-                    <br />
-
-                    🎯 Target:{" "}
-                    {exercise.target}
-
-                  </span>
-
-                  {customExercises.some(
-                    (item) =>
-                      item.name ===
-                      exercise.name
-                  ) && (
-
-                    <div>
-
-                      <button
-                        onClick={() =>
-                          startEdit(
-                            exercise.name
-                          )
-                        }
-                      >
-                        ✏️ Edit
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          deleteExercise(
-                            exercise.name
-                          )
-                        }
-                      >
-                        🗑️ Delete
-                      </button>
-
-                    </div>
-
-                  )}
+                  <button
+                    className="cancel-btn"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setNewExercise("");
+                      setNewTargetValue("");
+                      setNewTargetType(
+                        "reps"
+                      );
+                    }}
+                  >
+                    Cancel
+                  </button>
 
                 </div>
 
-              ))}
+              </div>
+            )}
 
-              {editingExercise !== "" && (
+            {/* EMPTY CUSTOM WORKOUT */}
 
-                <div className="edit-exercise">
+            {customExercises.length ===
+            0 ? (
 
-                  <h4>
-                    Edit Exercise Name
-                  </h4>
+              <div className="empty-custom-workout">
 
-                  <input
-                    type="text"
-                    value={editedExercise}
-                    onChange={(event) =>
-                      setEditedExercise(
-                        event.target.value
-                      )
-                    }
-                  />
+                <p>
+                  No custom exercises
+                  added yet.
+                </p>
+
+                <span>
+                  Add your first exercise
+                  to create your workout.
+                </span>
+
+              </div>
+
+            ) : (
+
+              <div className="custom-exercise-list">
+
+                {customExercises.map(
+                  (exercise) => (
+
+                    <div
+                      className="custom-exercise-item"
+                      key={exercise.name}
+                    >
+
+                      <div>
+
+                        <h4>
+                          {exercise.name}
+                        </h4>
+
+                        <p>
+                          Target:{" "}
+                          {
+                            exercise.targetValue
+                          }{" "}
+                          {
+                            exercise.targetType
+                          }
+                        </p>
+
+                      </div>
+
+                      <div className="custom-exercise-actions">
+
+                        <button
+                          onClick={() =>
+                            startEdit(
+                              exercise.name
+                            )
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            deleteExercise(
+                              exercise.name
+                            )
+                          }
+                        >
+                          Delete
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+            {/* EDIT CUSTOM EXERCISE */}
+
+            {editingExercise !== "" && (
+              <div className="edit-exercise">
+
+                <h4>
+                  Edit Exercise Name
+                </h4>
+
+                <input
+                  type="text"
+                  value={editedExercise}
+                  onChange={(event) =>
+                    setEditedExercise(
+                      event.target.value
+                    )
+                  }
+                />
+
+                <div className="edit-buttons">
 
                   <button
                     onClick={saveEdit}
                   >
-                    💾 Save
+                    Save
                   </button>
 
                   <button
@@ -1017,61 +1619,295 @@ function App() {
 
                 </div>
 
-              )}
+              </div>
+            )}
+
+            {/* START CUSTOM WORKOUT */}
+
+            {customExercises.length >
+              0 && (
+
+              <button
+                className="primary-btn start-custom-btn"
+                onClick={() => {
+
+                  const workoutName =
+                    customWorkoutName.trim() ||
+                    "My Custom Workout";
+
+                  setCustomWorkoutName(
+                    workoutName
+                  );
+
+                  setSelectedWorkout(
+                    "Custom"
+                  );
+
+                  setWorkoutLevel(
+                    workoutName
+                  );
+
+                  setCompletedExercises(
+                    []
+                  );
+
+                  setPage("tracker");
+
+                }}
+              >
+                Start Custom Workout
+              </button>
+
+            )}
+
+          </div>
+
+        </main>
+      )}
+
+      {/* =========================
+          TRACKER
+      ========================= */}
+
+      {page === "tracker" && (
+        <main className="tracker-page">
+
+          <div className="tracker-heading">
+
+            <p className="page-label">
+              WORKOUT TRACKER
+            </p>
+
+            <h2>
+              Exercise Tracker
+            </h2>
+
+            <p>
+              Complete each exercise and
+              track your workout progress.
+            </p>
+
+          </div>
+
+          <div className="tracker-layout">
+
+            <div className="tracker-card">
+
+              <div className="tracker-card-header">
+
+                <div>
+
+                  <h3>
+                    Today's Exercises
+                  </h3>
+
+                  <p>
+                    Workout Level:{" "}
+                    <strong>
+                      {selectedWorkout ===
+                      "Custom"
+                        ? customWorkoutName
+                        : selectedWorkout ||
+                          fitnessLevel}
+                    </strong>
+                  </p>
+
+                </div>
+
+                {/* NO ADD EXERCISE BUTTON HERE */}
+
+              </div>
+
+              <div className="exercise-list">
+
+                {selectedWorkout ===
+                "Rest Day" ? (
+
+                  <div className="rest-day-message">
+
+                    <h3>
+                      Rest Day
+                    </h3>
+
+                    <p>
+                      Today is for recovery.
+                      Take some time to relax
+                      and get ready for your
+                      next workout.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  exercises.map(
+                    (exercise) => {
+
+                      const isCompleted =
+                        completedExercises.includes(
+                          exercise.name
+                        );
+
+                      return (
+                        <div
+                          className={`exercise-row ${
+                            isCompleted
+                              ? "exercise-row-completed"
+                              : ""
+                          }`}
+                          key={exercise.name}
+                        >
+
+                          <button
+                            className={
+                              isCompleted
+                                ? "complete-btn completed"
+                                : "complete-btn"
+                            }
+                            onClick={() =>
+                              toggleExercise(
+                                exercise.name
+                              )
+                            }
+                          >
+                            {isCompleted
+                              ? "Completed"
+                              : "Complete"}
+                          </button>
+
+                          <div className="exercise-info">
+
+                            <strong>
+                              {
+                                exercise.name
+                              }
+                            </strong>
+
+                            <span>
+                              Target:{" "}
+                              {
+                                exercise.target
+                              }
+                            </span>
+
+                          </div>
+
+                        </div>
+                      );
+                    }
+                  )
+
+                )}
+
+              </div>
 
             </div>
 
-            <div className="card">
+            {/* TRACKER PROGRESS */}
+
+            <div className="tracker-progress-card">
+
+              <p className="progress-card-label">
+                WORKOUT PROGRESS
+              </p>
 
               <h3>
-                Workout Progress
+                Today's Progress
               </h3>
 
-              <h1>
-                {progress}%
-              </h1>
+              <div className="tracker-percentage">
+
+                {selectedWorkout ===
+                "Rest Day"
+                  ? "—"
+                  : `${progress}%`}
+
+              </div>
 
               <div className="progress-bar">
 
                 <div
                   className="progress-fill"
                   style={{
-                    width: progress + "%",
+                    width:
+                      progress + "%",
                   }}
                 ></div>
 
               </div>
 
-              <p>
-                {completedExercises.length} of{" "}
-                {exercises.length} completed
+              <p className="progress-count">
+
+                {selectedWorkout ===
+                "Rest Day"
+                  ? "No exercises scheduled today"
+                  : `${completedExercises.length} of ${exercises.length} exercises completed`}
+
               </p>
 
-              <h3>
-                🔥 Calories Burned:{" "}
-                {caloriesBurned} kcal
-              </h3>
+              <div className="calories-section">
 
-           
-          {progress === 100 && (
-  <div>
-    <p>🎉 Workout Completed!</p>
+                <span>
+                  Calories Burned
+                </span>
 
-    <button onClick={saveWorkout}>
-      💾 Save Workout
-    </button>
-  </div>
-)}
+                <strong>
+                  {selectedWorkout ===
+                  "Rest Day"
+                    ? 0
+                    : caloriesBurned}{" "}
+                  kcal
+                </strong>
 
-{completedExercises.length > 0 && progress < 100 && (
-  <button
-    onClick={() => {
-      setCompletedExercises([]);
-    }}
-  >
-    🔄 Reset Workout
-  </button>
-)}
+              </div>
+
+              {selectedWorkout !==
+                "Rest Day" &&
+                progress === 100 && (
+
+                  <div className="completion-section">
+
+                    <h4>
+                      Workout Completed
+                    </h4>
+
+                    <p>
+                      Great work! You
+                      completed all
+                      exercises.
+                    </p>
+
+                    <button
+                      onClick={
+                        saveWorkout
+                      }
+                      className="save-workout-btn"
+                    >
+                      Save Workout
+                    </button>
+
+                  </div>
+
+                )}
+
+              {selectedWorkout !==
+                "Rest Day" &&
+                completedExercises.length >
+                  0 &&
+                progress < 100 && (
+
+                  <button
+                    className="reset-workout-btn"
+                    onClick={() =>
+                      setCompletedExercises(
+                        []
+                      )
+                    }
+                  >
+                    Reset Workout
+                  </button>
+
+                )}
 
             </div>
 
@@ -1085,151 +1921,329 @@ function App() {
       ========================= */}
 
       {page === "progress" && (
+        <main className="progress-page">
 
-        <main className="dashboard">
+          <div className="progress-heading">
 
-          <h2>My Progress</h2>
+            <p className="page-label">
+              FITNESS OVERVIEW
+            </p>
 
-          <div className="cards">
+            <h2>
+              My Progress
+            </h2>
 
-            <div className="card">
+            <p>
+              Track your completed
+              workouts, exercises,
+              calories, and achievements.
+            </p>
 
-              <h3>
-                🏋️ Total Workouts
-              </h3>
+          </div>
+
+          <div className="progress-stats">
+
+            <div className="progress-stat-card">
+
+              <p className="stat-label">
+                TOTAL WORKOUTS
+              </p>
 
               <h1>
                 {totalWorkouts}
               </h1>
 
               <p>
-                Workouts completed and saved.
+                Workouts completed and
+                saved.
               </p>
 
             </div>
 
-            <div className="card">
+            <div className="progress-stat-card">
 
-              <h3>
-                📊 Exercises Completed
-              </h3>
+              <p className="stat-label">
+                EXERCISES COMPLETED
+              </p>
 
               <h1>
                 {totalExercisesCompleted}
               </h1>
 
               <p>
-                Total exercises from saved workouts.
+                Total exercises from saved
+                workouts.
               </p>
 
             </div>
 
-            <div className="card">
+            <div className="progress-stat-card">
 
-              <h3>
-                🔥 Total Calories
-              </h3>
+              <p className="stat-label">
+                TOTAL CALORIES
+              </p>
 
               <h1>
-                {totalCaloriesBurned} kcal
+                {totalCaloriesBurned}{" "}
+                <span>kcal</span>
               </h1>
 
               <p>
-                Calories from saved workouts.
+                Calories from saved
+                workouts.
               </p>
 
             </div>
 
-            <div className="card">
+            <div className="progress-stat-card">
 
-              <h3>
-                🏆 Achievement
-              </h3>
+              <p className="stat-label">
+                FITNESS GOAL
+              </p>
+
+              <h1 className="goal-value">
+                {fitnessGoal}
+              </h1>
+
+              <p>
+                Your current fitness goal.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="progress-content">
+
+            <div className="progress-panel">
+
+              <div className="panel-header">
+
+                <div>
+
+                  <p className="panel-label">
+                    ACHIEVEMENT
+                  </p>
+
+                  <h3>
+                    Workout Milestone
+                  </h3>
+
+                </div>
+
+              </div>
 
               {totalWorkouts > 0 ? (
 
-                <p>
-                  🎉 Great job! You have completed{" "}
-                  {totalWorkouts} workout
-                  {totalWorkouts > 1 ? "s" : ""}!
-                </p>
+                <div className="achievement-message">
+
+                  <h4>
+                    Great progress!
+                  </h4>
+
+                  <p>
+                    You have completed{" "}
+                    {totalWorkouts} workout
+                    {totalWorkouts > 1
+                      ? "s"
+                      : ""}
+                    .
+                  </p>
+
+                </div>
 
               ) : (
 
-                <p>
-                  Keep going and complete your first workout!
-                </p>
+                <div className="achievement-message">
+
+                  <h4>
+                    Start your journey
+                  </h4>
+
+                  <p>
+                    Complete your first
+                    workout to begin
+                    tracking your progress.
+                  </p>
+
+                </div>
 
               )}
 
             </div>
-            <div className="card">
 
-  <h3>🌟 Achievements</h3>
+            <div className="progress-panel">
 
-  <p>
-    {achievements.firstWorkout
-      ? "🥇 First Workout — Unlocked"
-      : "🔒 First Workout — Locked"}
-  </p>
+              <div className="panel-header">
 
-  <p>
-    {achievements.fiveWorkouts
-      ? "🏆 Consistent Trainer — Unlocked"
-      : "🔒 Consistent Trainer — Locked"}
-  </p>
+                <div>
 
-  <p>
-    {achievements.tenWorkouts
-      ? "🔥 Fitness Champion — Unlocked"
-      : "🔒 Fitness Champion — Locked"}
-  </p>
+                  <p className="panel-label">
+                    ACHIEVEMENTS
+                  </p>
 
-</div>
+                  <h3>
+                    Your Milestones
+                  </h3>
 
-            <div className="card">
+                </div>
 
-              <h3>
-                🎯 Fitness Goal
-              </h3>
+              </div>
 
-              <p>
-                {fitnessGoal}
-              </p>
+              <div className="achievement-list">
+
+                <div
+                  className={
+                    achievements.firstWorkout
+                      ? "achievement-item unlocked"
+                      : "achievement-item"
+                  }
+                >
+
+                  <div>
+
+                    <strong>
+                      First Workout
+                    </strong>
+
+                    <p>
+                      Complete your first
+                      workout.
+                    </p>
+
+                  </div>
+
+                  <span>
+                    {achievements.firstWorkout
+                      ? "Unlocked"
+                      : "Locked"}
+                  </span>
+
+                </div>
+
+                <div
+                  className={
+                    achievements.fiveWorkouts
+                      ? "achievement-item unlocked"
+                      : "achievement-item"
+                  }
+                >
+
+                  <div>
+
+                    <strong>
+                      Consistent Trainer
+                    </strong>
+
+                    <p>
+                      Complete five
+                      workouts.
+                    </p>
+
+                  </div>
+
+                  <span>
+                    {achievements.fiveWorkouts
+                      ? "Unlocked"
+                      : "Locked"}
+                  </span>
+
+                </div>
+
+                <div
+                  className={
+                    achievements.tenWorkouts
+                      ? "achievement-item unlocked"
+                      : "achievement-item"
+                  }
+                >
+
+                  <div>
+
+                    <strong>
+                      Fitness Champion
+                    </strong>
+
+                    <p>
+                      Complete ten
+                      workouts.
+                    </p>
+
+                  </div>
+
+                  <span>
+                    {achievements.tenWorkouts
+                      ? "Unlocked"
+                      : "Locked"}
+                  </span>
+
+                </div>
+
+              </div>
 
             </div>
 
-            <div className="card">
+          </div>
 
-              <h3>
-                📅 Workout History
-              </h3>
+          {/* HISTORY */}
+
+          <div className="history-panel">
+
+            <div className="history-header">
+
+              <div>
+
+                <p className="panel-label">
+                  WORKOUT HISTORY
+                </p>
+
+                <h3>
+                  Saved Workouts
+                </h3>
+
+              </div>
+
               {history.length > 0 && (
-  <button
-    onClick={() => {
-      const confirmDelete = window.confirm(
-        "Are you sure you want to delete all workout history?"
-      );
 
-      if (confirmDelete) {
-        setHistory([]);
-      }
-    }}
-  >
-    🗑️ Delete History
-  </button>
-)}
-               
+                <button
+                  className="delete-history-btn"
+                  onClick={() => {
 
-              {history.length === 0 ? (
+                    const confirmDelete =
+                      window.confirm(
+                        "Are you sure you want to delete all workout history?"
+                      );
+
+                    if (
+                      confirmDelete
+                    ) {
+                      setHistory([]);
+                    }
+
+                  }}
+                >
+                  Delete History
+                </button>
+
+              )}
+
+            </div>
+
+            {history.length === 0 ? (
+
+              <div className="empty-history">
 
                 <p>
                   No workouts saved yet.
                 </p>
 
-              ) : (
+              </div>
 
-                history.map(
+            ) : (
+
+              <div className="history-list">
+
+                {history.map(
                   (workout, index) => (
 
                     <div
@@ -1237,206 +2251,497 @@ function App() {
                       key={index}
                     >
 
-                      <strong>
-                        🏋️ {workout.date}
-                      </strong>
+                      <div className="history-main">
 
-                      <p>
-                        Level: {workout.level}
-                      </p>
+                        <strong>
+                          {workout.date}
+                        </strong>
 
-                      <p>
-                        Exercises: {workout.count}
-                      </p>
+                        <span>
+                          Level:{" "}
+                          {workout.level}
+                        </span>
 
-                      <p>
-                        🔥 Calories:{" "}
-                        {workout.calories || 0} kcal
-                      </p>
+                      </div>
+
+                      <div className="history-details">
+
+                        <span>
+                          {workout.count}{" "}
+                          exercises
+                        </span>
+
+                        <span>
+                          {workout.calories ||
+                            0}{" "}
+                          kcal
+                        </span>
+
+                      </div>
+
                       <button
-  onClick={() => {
-    const confirmDelete = window.confirm(
-      "Delete this workout from history?"
-    );
+                        className="delete-item-btn"
+                        onClick={() => {
 
-    if (confirmDelete) {
-      deleteHistoryItem(index);
-    }
-  }}
->
-  🗑️ Delete
-</button>
+                          const confirmDelete =
+                            window.confirm(
+                              "Delete this workout from history?"
+                            );
+
+                          if (
+                            confirmDelete
+                          ) {
+                            deleteHistoryItem(
+                              index
+                            );
+                          }
+
+                        }}
+                      >
+                        Delete
+                      </button>
 
                     </div>
 
                   )
-                )
+                )}
 
-              )}
+              </div>
 
-            </div>
+            )}
 
           </div>
 
         </main>
-
       )}
 
       {/* =========================
           PROFILE
       ========================= */}
+{page === "login" && (
+  <main className="login-page">
+    <div className="login-card">
+      <p className="page-label">ACCOUNT LOGIN</p>
 
+      <h2>Welcome Back</h2>
+
+      <p className="login-description">
+        Sign in to continue using your fitness tracker.
+      </p>
+
+      <div className="login-form">
+        <div className="login-form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder="Enter your email"
+          />
+        </div>
+
+        <div className="login-form-group">
+          <label>Password</label>
+          <input
+            type="password"
+            placeholder="Enter your password"
+          />
+        </div>
+
+        <button
+          className="login-submit-btn"
+          onClick={() => {
+  setIsLoggedIn(true);
+  setPage("dashboard");
+}}
+        >
+          Login
+        </button>
+
+        <button
+          className="login-back-btn"
+          onClick={() => setPage("dashboard")}
+        >
+          Back to Dashboard
+          </button>
+           
+        <p className="login-signup-link">
+  Don't have an account?
+  <button onClick={() => setPage("signup")}>
+    Sign Up
+  </button>
+</p>
+      </div>
+    </div>
+  </main>
+)}
+
+{page === "signup" && (
+  <main className="signup-page">
+    <div className="signup-card">
+      <p className="page-label">CREATE ACCOUNT</p>
+
+      <h2>Create Your Account</h2>
+
+      <p className="signup-description">
+        Create an account to continue using your fitness tracker.
+      </p>
+
+      <div className="signup-form">
+
+        <div className="signup-form-group">
+          <label>Name</label>
+          <input
+            type="text"
+            placeholder="Enter your name"
+          />
+        </div>
+
+        <div className="signup-form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder="Enter your email"
+          />
+        </div>
+
+        <div className="signup-form-group">
+          <label>Password</label>
+          <input
+            type="password"
+            placeholder="Create a password"
+          />
+        </div>
+
+        <button
+          className="signup-submit-btn"
+           onClick={() => {
+  alert("Account created successfully!");
+  setPage("login");
+}}
+        >
+          Create Account
+        </button>
+
+        <button
+          className="signup-back-btn"
+          onClick={() => setPage("dashboard")}
+        >
+          Back to Dashboard
+        </button>
+
+      </div>
+    </div>
+  </main>
+)}
       {page === "profile" && (
+        <main className="profile-page">
 
-        <main className="dashboard">
+          <div className="profile-heading">
 
-          <h2>My Profile 👤</h2>
+            <p className="page-label">
+              PERSONAL SETTINGS
+            </p>
 
-          <div className="cards">
+            <h2>
+              My Profile
+            </h2>
+
+            <p>
+              Manage your personal
+              information, fitness level,
+              and goals.
+            </p>
+
+          </div>
+
+          <div className="profile-layout">
 
             {/* PERSONAL INFORMATION */}
 
-            <div className="card">
+            <div className="profile-card">
 
-              <h3>
-                Personal Information
-              </h3>
+              <div className="profile-card-header">
 
-              <p>
-                Your Name
-              </p>
+                <p className="panel-label">
+                  PROFILE INFORMATION
+                </p>
 
-              <input
-                type="text"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(event) =>
-                  setName(event.target.value)
-                }
-              />
+                <h3>
+                  Personal Information
+                </h3>
 
-              {/* FITNESS LEVEL */}
+                <p>
+                  Update your details and
+                  fitness preferences.
+                </p>
 
-              <p>
-                Fitness Level
-              </p>
+              </div>
 
-              <select
-                value={fitnessLevel}
-                onChange={(event) => {
-  const level = event.target.value;
+              <div className="profile-form">
 
-  setFitnessLevel(level);
-  setWorkoutLevel(level);
-  setCompletedExercises([]);
-}}
-              >
+                <div className="profile-form-group">
 
-                <option value="Beginner">
-                  Beginner
-                </option>
+                  <label>
+                    Your Name
+                  </label>
 
-                <option value="Intermediate">
-                  Intermediate
-                </option>
+                  <input
+                    type="text"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(event) =>
+                      setName(
+                        event.target.value
+                      )
+                    }
+                  />
 
-                <option value="Advanced">
-                  Advanced
-                </option>
+                </div>
 
-              </select>
+                <div className="profile-form-group">
 
-              {/* FITNESS GOAL */}
+                  <label>
+                    Fitness Level
+                  </label>
 
-              <p>
-                Fitness Goal
-              </p>
+                  <select
+                    value={fitnessLevel}
+                    onChange={(event) => {
 
-              <select
-                value={fitnessGoal}
-                onChange={(event) =>
-                  setFitnessGoal(
-                    event.target.value
-                  )
-                }
-              >
+                      const level =
+                        event.target.value;
 
-                <option value="Stay Active">
-                  Stay Active
-                </option>
+                      setFitnessLevel(
+                        level
+                      );
 
-                <option value="Build Strength">
-                  Build Strength
-                </option>
+                      setWorkoutLevel(
+                        level
+                      );
 
-                <option value="Improve Fitness">
-                  Improve Fitness
-                </option>
+                      setSelectedWorkout(
+                        level
+                      );
 
-              </select>
+                      setCompletedExercises(
+                        []
+                      );
 
-              <button
-  onClick={() => {
-    localStorage.setItem("profileName", name);
-    localStorage.setItem("fitnessLevel", fitnessLevel);
-    localStorage.setItem("fitnessGoal", fitnessGoal);
-    alert("Profile saved successfully!");
-  }}
->
-  💾 Save Profile
-</button>
+                    }}
+                  >
 
-<p>
-  Your information is saved automatically.
-</p>
+                    <option value="Beginner">
+                      Beginner
+                    </option>
+
+                    <option value="Intermediate">
+                      Intermediate
+                    </option>
+
+                    <option value="Advanced">
+                      Advanced
+                    </option>
+
+                  </select>
+
+                </div>
+
+                <div className="profile-form-group">
+
+                  <label>
+                    Fitness Goal
+                  </label>
+
+                  <select
+                    value={fitnessGoal}
+                    onChange={(event) =>
+                      setFitnessGoal(
+                        event.target.value
+                      )
+                    }
+                  >
+
+                    <option value="Stay Active">
+                      Stay Active
+                    </option>
+
+                    <option value="Build Strength">
+                      Build Strength
+                    </option>
+
+                    <option value="Improve Fitness">
+                      Improve Fitness
+                    </option>
+
+                  </select>
+
+                </div>
+
+                <button
+                  className="save-profile-btn"
+                  onClick={() => {
+
+                    localStorage.setItem(
+                      "profileName",
+                      name
+                    );
+
+                    localStorage.setItem(
+                      "fitnessLevel",
+                      fitnessLevel
+                    );
+
+                    localStorage.setItem(
+                      "fitnessGoal",
+                      fitnessGoal
+                    );
+
+                    setSelectedWorkout(
+                      fitnessLevel
+                    );
+
+                    setWorkoutLevel(
+                      fitnessLevel
+                    );
+
+                    alert(
+                      "Profile saved successfully!"
+                    );
+
+                  }}
+                >
+                  Save Profile
+                </button>
+
+                <p className="profile-save-note">
+                  Your information is
+                  saved automatically.
+                </p>
+
+              </div>
 
             </div>
 
             {/* STATISTICS */}
 
-            <div className="card">
+            <div className="profile-card">
 
-              <h3>
-                📊 Your Statistics
-              </h3>
+              <div className="profile-card-header">
 
-              <p>
-                Fitness Level: {fitnessLevel}
-              </p>
+                <p className="panel-label">
+                  FITNESS SUMMARY
+                </p>
 
-              <p>
-                Fitness Goal: {fitnessGoal}
-              </p>
+                <h3>
+                  Your Statistics
+                </h3>
 
-              <p>
-                Current Workout: {workoutLevel}
-              </p>
+                <p>
+                  A quick overview of your
+                  current fitness activity.
+                </p>
 
-              <p>
-                Total Exercises Available:{" "}
-                {exercises.length}
-              </p>
+              </div>
 
-              <p>
-                Total Exercises Completed:{" "}
-                {totalExercisesCompleted}
-              </p>
+              <div className="profile-stat-list">
 
-              <p>
-                Saved Workouts: {totalWorkouts}
-              </p>
+                <div className="profile-stat-row">
 
-              <p>
-                🔥 Total Calories:{" "}
-                {totalCaloriesBurned} kcal
-              </p>
+                  <span>
+                    Fitness Level
+                  </span>
+
+                  <strong>
+                    {fitnessLevel}
+                  </strong>
+
+                </div>
+
+                <div className="profile-stat-row">
+
+                  <span>
+                    Fitness Goal
+                  </span>
+
+                  <strong>
+                    {fitnessGoal}
+                  </strong>
+
+                </div>
+
+                <div className="profile-stat-row">
+
+                  <span>
+                    Current Workout
+                  </span>
+
+                  <strong>
+                    {selectedWorkout ===
+                    "Custom"
+                      ? customWorkoutName
+                      : selectedWorkout ||
+                        workoutLevel}
+                  </strong>
+
+                </div>
+
+                <div className="profile-stat-row">
+
+                  <span>
+                    Exercises Available
+                  </span>
+
+                  <strong>
+                    {selectedWorkout ===
+                    "Rest Day"
+                      ? 0
+                      : exercises.length}
+                  </strong>
+
+                </div>
+
+                <div className="profile-stat-row">
+
+                  <span>
+                    Exercises Completed
+                  </span>
+
+                  <strong>
+                    {totalExercisesCompleted}
+                  </strong>
+
+                </div>
+
+                <div className="profile-stat-row">
+
+                  <span>
+                    Saved Workouts
+                  </span>
+
+                  <strong>
+                    {totalWorkouts}
+                  </strong>
+
+                </div>
+
+                <div className="profile-stat-row">
+
+                  <span>
+                    Total Calories
+                  </span>
+
+                  <strong>
+                    {totalCaloriesBurned} kcal
+                  </strong>
+
+                </div>
+
+              </div>
 
             </div>
 
           </div>
 
         </main>
-
       )}
 
     </div>
