@@ -7,7 +7,7 @@ import Progress from "./pages/Progress";
 import WorkoutHistory from "./pages/WorkoutHistory";
 import Profile from "./pages/Profile";
 import ExerciseGuide from "./components/ExerciseGuide";
-import { WORKOUT_CATEGORIES_DATA } from "./data/workoutData";
+import { WORKOUT_CATEGORIES_DATA, findExerciseByStableId } from "./data/workoutData";
 import "./App.css";
 
 export default function App() {
@@ -16,7 +16,12 @@ export default function App() {
   // =========================
   const getInitialPage = () => {
     if (typeof window !== "undefined") {
-      const hash = window.location.hash.replace("#", "");
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("exercise") || searchParams.get("id")) {
+        return "exerciseGuide";
+      }
+      const rawHash = window.location.hash.replace("#", "");
+      const cleanHash = rawHash.split("?")[0];
       const validPages = [
         "dashboard",
         "workouts",
@@ -26,7 +31,7 @@ export default function App() {
         "history",
         "profile",
       ];
-      if (validPages.includes(hash)) return hash;
+      if (validPages.includes(cleanHash)) return cleanHash;
     }
     return localStorage.getItem("fittrack_active_page") || "dashboard";
   };
@@ -43,30 +48,26 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
 
-  useEffect(() => {
-    const handleHash = () => {
-      const hash = window.location.hash.replace("#", "");
-      const valid = [
-        "dashboard",
-        "workouts",
-        "tracker",
-        "exerciseGuide",
-        "progress",
-        "history",
-        "profile",
-      ];
-      if (valid.includes(hash)) {
-        setPage(hash);
-      }
-    };
-    window.addEventListener("hashchange", handleHash);
-    return () => window.removeEventListener("hashchange", handleHash);
-  }, []);
+  
 
   // =========================
   // WORKOUT SELECTION
   // =========================
   const [selectedWorkout, setSelectedWorkout] = useState(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const exParam = searchParams.get("exercise") || searchParams.get("id");
+      if (exParam) {
+        const found = findExerciseByStableId(exParam);
+        if (found) return found.category.name;
+      }
+      const hash = window.location.hash;
+      const match = hash.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+      if (match) {
+        const found = findExerciseByStableId(match[1]);
+        if (found) return found.category.name;
+      }
+    }
     return localStorage.getItem("selectedWorkout") || "Beginner";
   });
 
@@ -83,6 +84,20 @@ export default function App() {
 
   // Selected Exercise for Guidance
   const [selectedExercise, setSelectedExercise] = useState(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const exParam = searchParams.get("exercise") || searchParams.get("id");
+      if (exParam) {
+        const found = findExerciseByStableId(exParam);
+        if (found) return found.exercise;
+      }
+      const hash = window.location.hash;
+      const match = hash.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+      if (match) {
+        const found = findExerciseByStableId(match[1]);
+        if (found) return found.exercise;
+      }
+    }
     try {
       const saved = localStorage.getItem("selectedExercise");
       return saved ? JSON.parse(saved) : null;
@@ -96,6 +111,37 @@ export default function App() {
       localStorage.setItem("selectedExercise", JSON.stringify(selectedExercise));
     }
   }, [selectedExercise]);
+
+  useEffect(() => {
+    const handleHash = () => {
+      const rawHash = window.location.hash.replace("#", "");
+      const cleanHash = rawHash.split("?")[0];
+      const match = rawHash.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+      if (match) {
+        const found = findExerciseByStableId(match[1]);
+        if (found) {
+          setSelectedWorkout(found.category.name);
+          setSelectedExercise(found.exercise);
+          setPage("exerciseGuide");
+          return;
+        }
+      }
+      const valid = [
+        "dashboard",
+        "workouts",
+        "tracker",
+        "exerciseGuide",
+        "progress",
+        "history",
+        "profile",
+      ];
+      if (valid.includes(cleanHash)) {
+        setPage(cleanHash);
+      }
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
 
   // =========================
   // COMPLETED EXERCISES (PERSISTENT STABLE IDS)
@@ -167,7 +213,7 @@ export default function App() {
   // =========================
 
   // Toggle single exercise by unique ID
-  const handleToggleExercise = useCallback((exerciseId) => {
+  const handleToggleExercise = (exerciseId) => {
     setCompletedExercises((prev) => {
       if (prev.includes(exerciseId)) {
         return prev.filter((id) => id !== exerciseId);
@@ -175,26 +221,23 @@ export default function App() {
         return [...prev, exerciseId];
       }
     });
-  }, []);
+  };
 
   // Set active plan and navigate to tracker
-  const handleSelectWorkout = useCallback((planName) => {
+  const handleSelectWorkout = (planName) => {
     setSelectedWorkout(planName);
     setPage("tracker");
-  }, []);
+  };
 
   // Open guidance for specific exercise
-  const handleOpenExerciseGuide = useCallback(
-    (exercise) => {
-      setSelectedExercise(exercise);
-      setPreviousPage(page === "exerciseGuide" ? "tracker" : page);
-      setPage("exerciseGuide");
-    },
-    [page]
-  );
+  const handleOpenExerciseGuide = (exercise) => {
+    setSelectedExercise(exercise);
+    setPreviousPage(page === "exerciseGuide" ? "tracker" : page);
+    setPage("exerciseGuide");
+  };
 
   // Open guidance for a full plan (defaults to first exercise)
-  const handleOpenGuideForPlan = useCallback((planName) => {
+  const handleOpenGuideForPlan = (planName) => {
     setSelectedWorkout(planName);
     const cat = WORKOUT_CATEGORIES_DATA[planName];
     if (cat && cat.exercises && cat.exercises.length > 0) {
@@ -202,54 +245,51 @@ export default function App() {
     }
     setPreviousPage("workouts");
     setPage("exerciseGuide");
-  }, []);
+  };
 
   // Finish Workout & Log Session (with duplicate debounce)
   const [lastSavedTimestamp, setLastSavedTimestamp] = useState(0);
 
-  const handleFinishWorkout = useCallback(
-    (summary) => {
-      const now = Date.now();
-      // Debounce protection: ignore duplicate requests within 4 seconds
-      if (now - lastSavedTimestamp < 4000) {
-        return;
-      }
-      setLastSavedTimestamp(now);
+  const handleFinishWorkout = (summary) => {
+    const now = Date.now();
+    // Debounce protection: ignore duplicate requests within 4 seconds
+    if (now - lastSavedTimestamp < 4000) {
+      return;
+    }
+    setLastSavedTimestamp(now);
 
-      const levelName = summary.level || selectedWorkout;
-      const count = summary.count || 1;
-      const total = summary.totalExercises || exercises.length;
-      const cal = summary.calories || 35;
-      const duration = summary.durationMinutes || 20;
-      const exIds = summary.exerciseIds || [];
-      const exNames = summary.exerciseNames || [];
+    const levelName = summary.level || selectedWorkout;
+    const count = summary.count || 1;
+    const total = summary.totalExercises || exercises.length;
+    const cal = summary.calories || 35;
+    const duration = summary.durationMinutes || 20;
+    const exIds = summary.exerciseIds || [];
+    const exNames = summary.exerciseNames || [];
 
-      const newRecord = {
-        id: "workout-" + now + "-" + Math.random().toString(36).substr(2, 5),
-        date: new Date().toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
-        time: new Date().toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        level: levelName,
-        count: count,
-        totalExercises: total,
-        exerciseIds: exIds,
-        exerciseNames: exNames,
-        calories: cal,
-        durationMinutes: duration,
-        status: "Completed",
-        timestamp: now,
-      };
+    const newRecord = {
+      id: "workout-" + now + "-" + Math.random().toString(36).substr(2, 5),
+      date: new Date().toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+      time: new Date().toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      level: levelName,
+      count: count,
+      totalExercises: total,
+      exerciseIds: exIds,
+      exerciseNames: exNames,
+      calories: cal,
+      durationMinutes: duration,
+      status: "Completed",
+      timestamp: now,
+    };
 
-      setHistory((prev) => [...prev, newRecord]);
-    },
-    [lastSavedTimestamp, selectedWorkout, exercises.length]
-  );
+    setHistory((prev) => [...prev, newRecord]);
+  };
 
   // Reset active workout only (preserves all other levels)
   const handleResetWorkout = useCallback(
@@ -266,31 +306,31 @@ export default function App() {
   );
 
   // Delete single history item
-  const handleDeleteHistoryItem = useCallback((idOrIndex) => {
+  const handleDeleteHistoryItem = (idOrIndex) => {
     setHistory((prev) => {
       if (typeof idOrIndex === "string") {
         return prev.filter((item) => item.id !== idOrIndex);
       }
       return prev.filter((_, idx) => idx !== idOrIndex);
     });
-  }, []);
+  };
 
   // Clear all history
-  const handleClearAllHistory = useCallback(() => {
+  const handleClearAllHistory = () => {
     setHistory([]);
-  }, []);
+  };
 
   // Save profile settings
-  const handleSaveProfile = useCallback((newProfile) => {
+  const handleSaveProfile = (newProfile) => {
     if (newProfile.name) setProfileName(newProfile.name);
     if (newProfile.fitnessLevel) setFitnessLevel(newProfile.fitnessLevel);
     if (newProfile.fitnessGoal) setFitnessGoal(newProfile.fitnessGoal);
     if (newProfile.dailyTargetMinutes)
       setDailyTargetMinutes(newProfile.dailyTargetMinutes);
-  }, []);
+  };
 
   // Clear all local storage data
-  const handleClearAllData = useCallback(() => {
+  const handleClearAllData = () => {
     setCompletedExercises([]);
     setHistory([]);
     setSelectedWorkout("Beginner");
@@ -298,7 +338,7 @@ export default function App() {
     localStorage.removeItem("completedExercises");
     localStorage.removeItem("workoutHistory");
     localStorage.removeItem("selectedWorkout");
-  }, []);
+  };
 
   return (
     <div className="fittrack-app-root">
