@@ -1,274 +1,309 @@
-import { useState } from "react";
+import { WORKOUT_CATEGORIES_DATA } from "../data/workoutData";
 
-function Dashboard({
-  completedExercises,
-  setCurrentPage,
+export default function Dashboard({
+  profileName,
+  fitnessLevel,
+  fitnessGoal,
   selectedWorkout,
-  totalExercises,
-  workoutPlans,
+  exercises,
+  completedExercises,
   workoutHistory,
+  onNavigate,
+  onSelectWorkout,
+  onOpenExercise,
 }) {
-  const [name] = useState(() => localStorage.getItem("profileName") || "");
-  const [goal] = useState(() => localStorage.getItem("fitnessGoal") || "Build Strength");
-
-  const todayExercises =
-    workoutPlans[selectedWorkout] || [];
+  const completedInCurrent = exercises.filter((ex) =>
+    completedExercises.includes(ex.id)
+  );
 
   const progress =
-    totalExercises > 0
-      ? Math.round(
-          (completedExercises.length / totalExercises) * 100
-        )
+    exercises.length > 0
+      ? Math.round((completedInCurrent.length / exercises.length) * 100)
       : 0;
 
-  const totalWorkoutsCompleted =
-    workoutHistory ? workoutHistory.length : 0;
+  const totalWorkouts = workoutHistory.length;
 
-  const totalExercisesCompleted = workoutHistory
-    ? workoutHistory.reduce(
-        (total, workout) =>
-          total + workout.exercises,
-        0
-      )
-    : 0;
+  const totalExercisesDone = workoutHistory.reduce(
+    (acc, curr) => acc + (curr.count || 0),
+    0
+  ) + completedExercises.length;
+
+  const totalCaloriesBurned = workoutHistory.reduce(
+    (acc, curr) => acc + (curr.calories || 0),
+    0
+  ) + completedInCurrent.reduce((acc, ex) => acc + (ex.calories || 6), 0);
+
+  const currentDate = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const getDifficultyColor = (level) => {
+    switch (level?.toLowerCase()) {
+      case "beginner":
+        return "badge-easy";
+      case "intermediate":
+        return "badge-medium";
+      case "advanced":
+        return "badge-hard";
+      default:
+        return "badge-neutral";
+    }
+  };
+
+  const recentHistory = workoutHistory.slice(-3).reverse();
 
   return (
-    <div className="dashboard">
-
-      {/* =========================
-          WELCOME SECTION
-      ========================= */}
-
-      <div className="welcome-section">
-
-        <h1>
-          {name
-            ? `Welcome, ${name}! 👋`
-            : "Welcome to FitTrack! 👋"}
-        </h1>
-
-        <p>
-          Stay active, stay healthy, and reach your fitness goals.
-        </p>
-
-        <button
-          onClick={() => setCurrentPage("tracker")}
-        >
-          Start Workout
-        </button>
-
-      </div>
-
-
-      {/* =========================
-          QUICK INFORMATION
-      ========================= */}
-
-      <div className="dashboard-summary">
-
-        <div className="summary-card">
-          <h2>💪</h2>
-          <h3>{totalExercisesCompleted}</h3>
-          <p>Exercises Completed</p>
-        </div>
-
-        <div className="summary-card">
-          <h2>🏆</h2>
-          <h3>{totalWorkoutsCompleted}</h3>
-          <p>Workouts Completed</p>
-        </div>
-
-        <div className="summary-card">
-          <h2>🏋️</h2>
-          <h3>{selectedWorkout}</h3>
-          <p>Current Level</p>
-        </div>
-
-        <div className="summary-card">
-          <h2>🔥</h2>
-          <h3>{progress}%</h3>
-          <p>Today's Progress</p>
-        </div>
-
-      </div>
-
-
-      {/* =========================
-          MAIN DASHBOARD
-      ========================= */}
-
-      <div className="dashboard-cards">
-
-
-        {/* TODAY'S WORKOUT */}
-
-        <div className="fitness-card">
-
-          <h2>💪 Today's Workout</h2>
-
-          <h3>
-            {selectedWorkout} Workout
-          </h3>
-
-          <p>
-            {todayExercises.length} exercises planned
+    <div className="dashboard-container">
+      {/* Welcome Banner */}
+      <section className="dashboard-hero">
+        <div className="hero-content">
+          <div className="hero-badge">
+            <span className="badge-pulse"></span>
+            <span>FITNESS DASHBOARD • {currentDate}</span>
+          </div>
+          <h1 className="hero-title">
+            Welcome back, <span className="highlight-name">{profileName || "Jeevi D"}</span>!
+          </h1>
+          <p className="hero-subtitle">
+            Goal: <strong className="goal-tag">{fitnessGoal || "Stay Active & Build Strength"}</strong> • Primary Level: <strong className="level-tag">{fitnessLevel || "Beginner"}</strong>
           </p>
-
-          <ul>
-            {todayExercises.map((exercise) => (
-              <li key={exercise}>
-                {exercise}
-              </li>
-            ))}
-          </ul>
-
+        </div>
+        <div className="hero-actions">
           <button
-            onClick={() => setCurrentPage("tracker")}
+            type="button"
+            className="btn btn-primary"
+            onClick={() => onNavigate("tracker")}
           >
-            Start Today's Workout
+            ⚡ Start Today&apos;s Workout
           </button>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => onNavigate("workouts")}
+          >
+            📋 Explore All Plans
+          </button>
+        </div>
+      </section>
 
+      {/* 4 Stats Cards */}
+      <section className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon-wrapper icon-indigo">📋</div>
+          <div className="stat-info">
+            <span className="stat-label">TODAY&apos;S WORKOUT</span>
+            <h3 className="stat-value">{selectedWorkout}</h3>
+            <span className={`status-pill ${getDifficultyColor(selectedWorkout)}`}>
+              {exercises.length} Exercises Scheduled
+            </span>
+          </div>
         </div>
 
+        <div className="stat-card">
+          <div className="stat-icon-wrapper icon-emerald">📈</div>
+          <div className="stat-info">
+            <span className="stat-label">CURRENT COMPLETION</span>
+            <div className="stat-value-row">
+              <h3 className="stat-value">{progress}%</h3>
+              <span className="stat-sub">{completedInCurrent.length}/{exercises.length} Done</span>
+            </div>
+            <div className="stat-progress-bar">
+              <div
+                className="stat-progress-fill"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
 
-        {/* WORKOUT PROGRESS */}
+        <div className="stat-card">
+          <div className="stat-icon-wrapper icon-sky">🏆</div>
+          <div className="stat-info">
+            <span className="stat-label">TOTAL WORKOUTS</span>
+            <h3 className="stat-value">{totalWorkouts}</h3>
+            <span className="stat-sub">Completed Sessions Logged</span>
+          </div>
+        </div>
 
-        <div className="fitness-card progress-card">
+        <div className="stat-card">
+          <div className="stat-icon-wrapper icon-rose">🔥</div>
+          <div className="stat-info">
+            <span className="stat-label">TOTAL CALORIES</span>
+            <h3 className="stat-value">{totalCaloriesBurned} <span className="stat-unit">kcal</span></h3>
+            <span className="stat-sub">{totalExercisesDone} Exercises Mastered</span>
+          </div>
+        </div>
+      </section>
 
-          <h2>🔥 Workout Progress</h2>
-
-          <h3>
-            {progress}%
-          </h3>
-
-          <p>
-            {completedExercises.length} /{" "}
-            {totalExercises} exercises completed
-          </p>
-
-
-          {/* Progress Bar */}
-
-          <div
-            style={{
-              width: "100%",
-              height: "14px",
-              backgroundColor: "#e5e7eb",
-              borderRadius: "10px",
-              overflow: "hidden",
-              margin: "20px 0",
-            }}
-          >
-
-            <div
-              style={{
-                width: `${progress}%`,
-                height: "100%",
-                background:
-                  "linear-gradient(90deg, #16a34a, #4ade80)",
-                borderRadius: "10px",
-                transition: "width 0.5s ease",
-              }}
-            ></div>
-
+      {/* Main Grid: Left Active Workout, Right Activity & Switcher */}
+      <div className="dashboard-main-grid">
+        {/* Left: Active Workout Preview */}
+        <section className="dashboard-card active-workout-card">
+          <div className="card-header-row">
+            <div>
+              <span className="card-overline">TODAY&apos;S ASSIGNED SESSION</span>
+              <h2 className="card-title">{selectedWorkout} Training Plan</h2>
+            </div>
+            <span className={`badge-lg ${getDifficultyColor(selectedWorkout)}`}>
+              {WORKOUT_CATEGORIES_DATA[selectedWorkout]?.duration || "20-30 min"}
+            </span>
           </div>
 
-
-          <p
-            style={{
-              textAlign: "center",
-              fontWeight: "600",
-            }}
-          >
-            {progress === 0
-              ? "Start your workout! 💪"
-              : progress === 100
-              ? "Workout completed! 🎉"
-              : "Keep going! 🔥"}
+          <p className="card-desc">
+            {WORKOUT_CATEGORIES_DATA[selectedWorkout]?.description ||
+              "Follow your scheduled movements with proper form, steady cadence, and breathing control."}
           </p>
 
+          <div className="exercise-preview-list">
+            {exercises.map((ex, idx) => {
+              const isDone = completedExercises.includes(ex.id);
+              return (
+                <div
+                  key={ex.id || idx}
+                  className={`exercise-preview-item ${isDone ? "completed" : ""}`}
+                  onClick={() => onOpenExercise && onOpenExercise(ex)}
+                  role="button"
+                  tabIndex={0}
+                  title="Click to view 3D form and real demonstration"
+                >
+                  <div className="item-left">
+                    <span className="item-num">{idx + 1}</span>
+                    <div className="item-names">
+                      <strong>{ex.name}</strong>
+                      <span className="item-target">{ex.target} • {ex.calories || 6} kcal</span>
+                    </div>
+                  </div>
+                  <div className="item-right">
+                    {ex.hasRealHumanVideo && (
+                      <span className="video-badge" title="Verified human video demo available">
+                        🎥 Human Video
+                      </span>
+                    )}
+                    {isDone ? (
+                      <span className="status-done-pill">✓ Completed</span>
+                    ) : (
+                      <span className="status-pending-pill">View Guide →</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="card-actions-row">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => onNavigate("tracker")}
+            >
+              🎯 Open Exercise Tracker
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                if (exercises[0] && onOpenExercise) {
+                  onOpenExercise(exercises[0]);
+                } else {
+                  onNavigate("exerciseGuide");
+                }
+              }}
+            >
+              🎥 Form &amp; 3D Video Guide
+            </button>
+          </div>
+        </section>
+
+        {/* Right Column: Switcher & Recent History */}
+        <div className="dashboard-sidebar-column">
+          {/* Quick Level Switcher */}
+          <div className="dashboard-card quick-switch-card">
+            <div className="card-header-row">
+              <h3 className="card-title-sm">⚡ Quick Level Switcher</h3>
+            </div>
+            <p className="text-muted-sm">
+              Change today&apos;s active plan. Progress is isolated and saved separately for each level.
+            </p>
+            <div className="level-switch-buttons">
+              {["Beginner", "Intermediate", "Advanced"].map((lvl) => {
+                const isSelected = selectedWorkout === lvl;
+                return (
+                  <button
+                    key={lvl}
+                    type="button"
+                    className={`level-switch-btn ${isSelected ? "active" : ""}`}
+                    onClick={() => onSelectWorkout(lvl)}
+                  >
+                    <div className="switch-btn-content">
+                      <span className="switch-btn-title">{lvl}</span>
+                      <span className="switch-btn-sub">
+                        {WORKOUT_CATEGORIES_DATA[lvl]?.duration || "30 min"}
+                      </span>
+                    </div>
+                    {isSelected && <span className="active-dot">● Active</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recent History Card */}
+          <div className="dashboard-card recent-history-card">
+            <div className="card-header-row">
+              <h3 className="card-title-sm">⏱️ Recent Sessions</h3>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => onNavigate("history")}
+              >
+                View All →
+              </button>
+            </div>
+
+            {recentHistory.length === 0 ? (
+              <div className="empty-sub-card">
+                <span className="empty-icon">📝</span>
+                <p>No workout sessions logged yet.</p>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  onClick={() => onNavigate("tracker")}
+                >
+                  Log Your First Workout
+                </button>
+              </div>
+            ) : (
+              <div className="recent-history-list">
+                {recentHistory.map((entry, index) => (
+                  <div key={entry.id || index} className="recent-history-item">
+                    <div className="recent-item-icon">✓</div>
+                    <div className="recent-item-info">
+                      <strong className="recent-item-level">{entry.level}</strong>
+                      <span className="recent-item-meta">
+                        {entry.date} • {entry.count} exercises • {entry.calories} kcal
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pro Training Tip Card */}
+          <div className="dashboard-card pro-tip-card">
+            <div className="pro-tip-header">
+              <span className="tip-badge">PRO TIP</span>
+              <span className="tip-title">Consistency Over Intensity</span>
+            </div>
+            <p className="pro-tip-text">
+              Completing 15–20 minutes of correct form and steady movement every day delivers far greater long-term cardiovascular and muscular adaptation than occasional exhausted workouts.
+            </p>
+          </div>
         </div>
-
-
-        {/* FITNESS GOAL */}
-
-        <div className="fitness-card">
-
-          <h2>🎯 Fitness Goal</h2>
-
-          <h3>
-            {goal}
-          </h3>
-
-          <p>
-            Stay consistent and work towards your
-            fitness goal.
-          </p>
-
-        </div>
-
-
-        {/* FITNESS STATUS */}
-
-        <div className="fitness-card">
-
-          <h2>📊 Fitness Status</h2>
-
-          <h3>
-            {progress === 100
-              ? "Completed ✓"
-              : progress > 0
-              ? "In Progress"
-              : "Ready to Start"}
-          </h3>
-
-          <p>
-            {progress === 100
-              ? "Great job! Keep it up! 🎉"
-              : progress > 0
-              ? "You're doing great. Keep going! 💪"
-              : "Start your workout and stay active!"}
-          </p>
-
-        </div>
-
       </div>
-
-
-      {/* =========================
-          QUICK ACTIONS
-      ========================= */}
-
-      <div className="dashboard-quick-actions">
-
-        <h2>Quick Actions</h2>
-
-        <div>
-
-          <button
-            onClick={() => setCurrentPage("workouts")}
-          >
-            View Workout Plans
-          </button>
-
-          <button
-            onClick={() => setCurrentPage("tracker")}
-          >
-            Open Exercise Tracker
-          </button>
-
-          <button
-            onClick={() => setCurrentPage("progress")}
-          >
-            View My Progress
-          </button>
-
-        </div>
-
-      </div>
-
     </div>
   );
 }
-
-export default Dashboard;

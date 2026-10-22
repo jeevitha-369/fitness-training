@@ -71,6 +71,15 @@ function ExerciseMetricTracker({
 
             <button
               type="button"
+              className="timer-add-btn"
+              onClick={() => setTimerSeconds((s) => s + 10)}
+              title="Add 10 seconds"
+            >
+              +10s
+            </button>
+
+            <button
+              type="button"
               className="timer-reset-btn"
               onClick={() => {
                 setIsTimerRunning(false);
@@ -91,6 +100,15 @@ function ExerciseMetricTracker({
           </div>
 
           <div className="rep-actions">
+            <div className="rep-button-group">
+            <button
+              type="button"
+              className="rep-sub-btn"
+              onClick={() => setRepsDone((r) => Math.max(0, r - 1))}
+              title="Minus 1 rep"
+            >
+              -1
+            </button>
             <button
               type="button"
               className="add-rep-btn"
@@ -104,12 +122,28 @@ function ExerciseMetricTracker({
                 });
               }}
             >
-              +1 Rep Completed
+              +1 Rep Done
             </button>
-
             <button
               type="button"
-              className="rep-reset-btn"
+              className="rep-five-btn"
+              onClick={() => {
+                setRepsDone((r) => {
+                  const next = r + 5;
+                  if (next >= targetCount) {
+                    onComplete(exercise.id);
+                  }
+                  return next;
+                });
+              }}
+            >
+              +5 Reps
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="rep-reset-btn"
               onClick={() => setRepsDone(0)}
               title="Reset rep count"
             >
@@ -319,10 +353,17 @@ export default function WorkoutGuidance({
           : acc;
       }, 0);
 
+      const completedObjs = currentPlaylist.filter(
+        (ex) => sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name)
+      );
+
       onSaveWorkoutToHistory({
         level: workoutTitle,
         category: activeCategoryKey,
         count: completedCount || currentPlaylist.length,
+        totalExercises: currentPlaylist.length,
+        exerciseIds: completedObjs.map((e) => e.id),
+        exerciseNames: completedObjs.map((e) => e.name),
         calories: totalCalories || 40,
         durationMinutes: Math.max(1, Math.round(sessionElapsedTime / 60)),
       });
@@ -535,11 +576,9 @@ export default function WorkoutGuidance({
                   <div className="honest-asset-notice">
                     <span className="notice-icon">📹</span>
                     <div className="notice-content">
-                      <strong>Real-Human Video Footage Required</strong>
+                      <strong>Form Guide & 3D Movement Simulation</strong>
                       <p>
-                        Authentic real-human video for <em>{currentExercise.name}</em> is
-                        awaiting licensed recording. Displaying the 3D Biomechanical
-                        Simulation below as a movement reference.
+                        Authentic real-human demonstration footage for <em>{currentExercise.name}</em> is in licensed production. Please follow the verified step-by-step form cues and interactive 3D biomechanical motion model below.
                       </p>
                     </div>
                   </div>

@@ -1131,3 +1131,54 @@
 .next-quick-btn:hover {
   background: #5b4bc4;
 }
+
+/* Extra Rep and Timer Controls */
+.timer-add-btn {
+  background: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timer-add-btn:hover {
+  background: #e0e7ff;
+}
+
+.rep-button-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rep-sub-btn,
+.rep-five-btn {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rep-sub-btn:hover,
+.rep-five-btn:hover {
+  background: #e2e8f0;
+}
+
+.rep-five-btn {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.rep-five-btn:hover {
+  background: #dbeafe;
+}
