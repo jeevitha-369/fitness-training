@@ -1,4 +1,4 @@
- import { useState, useEffect } from "react";
+import { useState } from "react";
 
 function Profile({ setSelectedWorkout }) {
   const [name, setName] = useState(() => {
@@ -25,9 +25,7 @@ function Profile({ setSelectedWorkout }) {
     setSaved(true);
   };
 
-  useEffect(() => {
-    setSaved(false);
-  }, [name, fitnessLevel, goal]);
+
 
   return (
     <div className="profile-page">
@@ -45,7 +43,7 @@ function Profile({ setSelectedWorkout }) {
           type="text"
           placeholder="Enter your name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => { setName(e.target.value); setSaved(false); }}
         />
 
         {/* Fitness Level */}
@@ -53,7 +51,7 @@ function Profile({ setSelectedWorkout }) {
 
         <select
           value={fitnessLevel}
-          onChange={(e) => setFitnessLevel(e.target.value)}
+          onChange={(e) => { setFitnessLevel(e.target.value); setSaved(false); }}
         >
           <option value="Beginner">Beginner</option>
           <option value="Intermediate">Intermediate</option>
@@ -65,7 +63,7 @@ function Profile({ setSelectedWorkout }) {
 
         <select
           value={goal}
-          onChange={(e) => setGoal(e.target.value)}
+          onChange={(e) => { setGoal(e.target.value); setSaved(false); }}
         >
           <option value="Build Strength">
             Build Strength

@@ -1,4 +1,4 @@
- import { useState, useEffect } from "react";
+import { useState } from "react";
 
 function Dashboard({
   completedExercises,
@@ -8,16 +8,8 @@ function Dashboard({
   workoutPlans,
   workoutHistory,
 }) {
-  const [name, setName] = useState("");
-  const [goal, setGoal] = useState("Build Strength");
-
-  useEffect(() => {
-    const savedName = localStorage.getItem("profileName");
-    const savedGoal = localStorage.getItem("fitnessGoal");
-
-    setName(savedName || "");
-    setGoal(savedGoal || "Build Strength");
-  }, []);
+  const [name] = useState(() => localStorage.getItem("profileName") || "");
+  const [goal] = useState(() => localStorage.getItem("fitnessGoal") || "Build Strength");
 
   const todayExercises =
     workoutPlans[selectedWorkout] || [];

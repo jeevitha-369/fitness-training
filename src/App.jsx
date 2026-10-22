@@ -1,4 +1,6 @@
- import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import ExerciseGuide from "./components/ExerciseGuide";
+import { WORKOUT_CATEGORIES_DATA } from "./data/workoutData";
 import "./App.css";
 
 function App() {
@@ -7,15 +9,26 @@ function App() {
   // =========================
 
   const [page, setPage] = useState("dashboard");
+  const [selectedExercise, setSelectedExercise] = useState(null);
+  const [previousPage, setPreviousPage] = useState("tracker");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // =========================
   // WORKOUT STATE
   // =========================
 
-  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [selectedWorkout, setSelectedWorkout] = useState(() => {
+    return localStorage.getItem("selectedWorkout") || "Beginner";
+  });
 
-  const [completedExercises, setCompletedExercises] = useState([]);
+  const [completedExercises, setCompletedExercises] = useState(() => {
+    try {
+      const saved = localStorage.getItem("completedExercises");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [workoutLevel, setWorkoutLevel] = useState(() => {
     return localStorage.getItem("workoutLevel") || "Beginner";
@@ -110,227 +123,22 @@ function App() {
   });
 
   // =========================
-  // WORKOUT PLANS
+  // WORKOUT PLANS & BODY PART WORKOUTS (WITH STABLE IDENTIFIERS)
   // =========================
 
   const workoutPlans = {
-    Beginner: [
-      {
-        name: "Jumping Jacks",
-        target: "15 reps",
-        calories: 10,
-      },
-      {
-        name: "Bodyweight Squats",
-        target: "10 reps",
-        calories: 8,
-      },
-      {
-        name: "Wall Push Ups",
-        target: "8 reps",
-        calories: 5,
-      },
-      {
-        name: "Lunges",
-        target: "10 reps",
-        calories: 8,
-      },
-      {
-        name: "Plank",
-        target: "20 seconds",
-        calories: 5,
-      },
-    ],
-
-    Intermediate: [
-      {
-        name: "High Knees",
-        target: "25 reps",
-        calories: 10,
-      },
-      {
-        name: "Push Ups",
-        target: "15 reps",
-        calories: 7,
-      },
-      {
-        name: "Squats",
-        target: "20 reps",
-        calories: 8,
-      },
-      {
-        name: "Reverse Lunges",
-        target: "15 reps",
-        calories: 8,
-      },
-      {
-        name: "Mountain Climbers",
-        target: "20 reps",
-        calories: 10,
-      },
-      {
-        name: "Plank",
-        target: "30 seconds",
-        calories: 5,
-      },
-    ],
-
-    Advanced: [
-      {
-        name: "Burpees",
-        target: "15 reps",
-        calories: 12,
-      },
-      {
-        name: "Jump Squats",
-        target: "20 reps",
-        calories: 12,
-      },
-      {
-        name: "Push Ups",
-        target: "25 reps",
-        calories: 7,
-      },
-      {
-        name: "Mountain Climbers",
-        target: "30 reps",
-        calories: 10,
-      },
-      {
-        name: "Jumping Lunges",
-        target: "20 reps",
-        calories: 10,
-      },
-      {
-        name: "Plank",
-        target: "45 seconds",
-        calories: 5,
-      },
-    ],
+    Beginner: WORKOUT_CATEGORIES_DATA.Beginner.exercises,
+    Intermediate: WORKOUT_CATEGORIES_DATA.Intermediate.exercises,
+    Advanced: WORKOUT_CATEGORIES_DATA.Advanced.exercises,
   };
 
-  // =========================
-  // BODY PART WORKOUTS
-  // =========================
-
   const bodyPartWorkouts = {
-    Legs: [
-      {
-        name: "Bodyweight Squats",
-        target: "10 reps",
-        calories: 8,
-      },
-      {
-        name: "Lunges",
-        target: "10 reps",
-        calories: 8,
-      },
-      {
-        name: "Glute Bridges",
-        target: "12 reps",
-        calories: 7,
-      },
-      {
-        name: "Calf Raises",
-        target: "15 reps",
-        calories: 6,
-      },
-    ],
-
-    Arms: [
-      {
-        name: "Wall Push Ups",
-        target: "8 reps",
-        calories: 5,
-      },
-      {
-        name: "Arm Circles",
-        target: "20 reps",
-        calories: 4,
-      },
-      {
-        name: "Tricep Dips",
-        target: "8 reps",
-        calories: 6,
-      },
-      {
-        name: "Bicep Curls",
-        target: "10 reps",
-        calories: 6,
-      },
-    ],
-
-    Chest: [
-      {
-        name: "Wall Push Ups",
-        target: "10 reps",
-        calories: 5,
-      },
-      {
-        name: "Push Ups",
-        target: "8 reps",
-        calories: 7,
-      },
-      {
-        name: "Incline Push Ups",
-        target: "10 reps",
-        calories: 6,
-      },
-    ],
-
-    Back: [
-      {
-        name: "Bird Dog",
-        target: "10 reps",
-        calories: 5,
-      },
-      {
-        name: "Superman",
-        target: "10 reps",
-        calories: 6,
-      },
-      {
-        name: "Reverse Snow Angels",
-        target: "10 reps",
-        calories: 5,
-      },
-    ],
-
-    Shoulders: [
-      {
-        name: "Arm Circles",
-        target: "20 reps",
-        calories: 4,
-      },
-      {
-        name: "Wall Push Ups",
-        target: "8 reps",
-        calories: 5,
-      },
-      {
-        name: "Shoulder Taps",
-        target: "10 reps",
-        calories: 5,
-      },
-    ],
-
-    Core: [
-      {
-        name: "Plank",
-        target: "20 seconds",
-        calories: 5,
-      },
-      {
-        name: "Bird Dog",
-        target: "10 reps",
-        calories: 5,
-      },
-      {
-        name: "Dead Bug",
-        target: "10 reps",
-        calories: 5,
-      },
-    ],
+    Legs: WORKOUT_CATEGORIES_DATA.Legs.exercises,
+    Arms: WORKOUT_CATEGORIES_DATA.Arms.exercises,
+    Chest: WORKOUT_CATEGORIES_DATA.Chest.exercises,
+    Back: WORKOUT_CATEGORIES_DATA.Back.exercises,
+    Shoulders: WORKOUT_CATEGORIES_DATA.Shoulders.exercises,
+    Core: WORKOUT_CATEGORIES_DATA.Core.exercises,
   };
 
   // =========================
@@ -382,6 +190,29 @@ function App() {
   }, [history]);
 
   useEffect(() => {
+    localStorage.setItem(
+      "selectedWorkout",
+      selectedWorkout || "Beginner"
+    );
+  }, [selectedWorkout]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "completedExercises",
+      JSON.stringify(completedExercises)
+    );
+  }, [completedExercises]);
+
+  useEffect(() => {
+    if (selectedExercise) {
+      localStorage.setItem(
+        "selectedExercise",
+        JSON.stringify(selectedExercise)
+      );
+    }
+  }, [selectedExercise]);
+
+  useEffect(() => {
     localStorage.setItem("profileName", name);
     localStorage.setItem(
       "fitnessLevel",
@@ -411,19 +242,17 @@ function App() {
   // COMPLETE EXERCISE
   // =========================
 
-  const toggleExercise = (exerciseName) => {
-    if (
-      completedExercises.includes(exerciseName)
-    ) {
+  const toggleExercise = (exerciseIdentifier) => {
+    if (completedExercises.includes(exerciseIdentifier)) {
       setCompletedExercises(
         completedExercises.filter(
-          (item) => item !== exerciseName
+          (item) => item !== exerciseIdentifier
         )
       );
     } else {
       setCompletedExercises([
         ...completedExercises,
-        exerciseName,
+        exerciseIdentifier,
       ]);
     }
   };
@@ -583,14 +412,20 @@ function App() {
   };
 
   // =========================
-  // PROGRESS
+  // PROGRESS (SPECIFIC TO CURRENT WORKOUT)
   // =========================
+
+  const currentCompletedExercises = exercises.filter(
+    (e) =>
+      completedExercises.includes(e.id) ||
+      completedExercises.includes(e.name)
+  );
 
   const progress =
     exercises.length === 0
       ? 0
       : Math.round(
-          (completedExercises.length /
+          (currentCompletedExercises.length /
             exercises.length) *
             100
         );
@@ -600,20 +435,8 @@ function App() {
   // =========================
 
   const caloriesBurned =
-    completedExercises.reduce(
-      (total, exerciseName) => {
-        const exercise = exercises.find(
-          (item) =>
-            item.name === exerciseName
-        );
-
-        return (
-          total +
-          (exercise
-            ? exercise.calories
-            : 6)
-        );
-      },
+    currentCompletedExercises.reduce(
+      (total, exercise) => total + (exercise.calories || 6),
       0
     );
 
@@ -654,37 +477,37 @@ function App() {
   // =========================
 
   const saveWorkout = () => {
-    if (completedExercises.length === 0) {
+    const currentCompleted = exercises.filter(
+      (e) =>
+        completedExercises.includes(e.id) ||
+        completedExercises.includes(e.name)
+    );
+
+    if (currentCompleted.length === 0) {
       return;
     }
 
     const workout = {
-      date:
-        new Date().toLocaleDateString(),
-
+      date: new Date().toLocaleDateString(),
       level:
         selectedWorkout === "Custom"
           ? customWorkoutName
-          : selectedWorkout ||
-            workoutLevel,
-
-      count:
-        completedExercises.length,
-
-      calories:
-        caloriesBurned,
+          : selectedWorkout || workoutLevel,
+      count: currentCompleted.length,
+      calories: caloriesBurned,
     };
 
-    setHistory([
-      ...history,
-      workout,
-    ]);
+    setHistory((prev) => [...prev, workout]);
 
-    setCompletedExercises([]);
-
-    alert(
-      "Workout saved successfully!"
+    // Clear completed exercises for this workout session
+    const toRemove = new Set(
+      currentCompleted.flatMap((e) => [e.id, e.name])
     );
+    setCompletedExercises((prev) =>
+      prev.filter((id) => !toRemove.has(id))
+    );
+
+    alert("Workout saved successfully!");
   };
 
   // =========================
@@ -756,6 +579,20 @@ function App() {
             }
           >
             Tracker
+          </button>
+
+          <button
+            className={
+              page === "exerciseGuide"
+                ? "active-nav"
+                : ""
+            }
+            onClick={() => {
+              setPreviousPage(page);
+              setPage("exerciseGuide");
+            }}
+          >
+            Workout Guide
           </button>
 
           <button
@@ -1755,7 +1592,7 @@ function App() {
                               ? "exercise-row-completed"
                               : ""
                           }`}
-                          key={exercise.name}
+                          key={exercise.id || exercise.name}
                         >
 
                           <button
@@ -1766,7 +1603,7 @@ function App() {
                             }
                             onClick={() =>
                               toggleExercise(
-                                exercise.name
+                                exercise.id || exercise.name
                               )
                             }
                           >
@@ -1777,11 +1614,17 @@ function App() {
 
                           <div className="exercise-info">
 
-                            <strong>
-                              {
-                                exercise.name
-                              }
-                            </strong>
+                             <button
+  type="button"
+  className="exercise-guide-link"
+  onClick={() => {
+    setPreviousPage("tracker");
+    setSelectedExercise(exercise);
+    setPage("exerciseGuide");
+  }}
+>
+  {exercise.name}
+</button>
 
                             <span>
                               Target:{" "}
@@ -1915,6 +1758,44 @@ function App() {
 
         </main>
       )}
+
+{/* =========================
+    HUMAN WORKOUT GUIDANCE
+========================= */}
+
+{page === "exerciseGuide" && (
+  <ExerciseGuide
+    exercise={selectedExercise || exercises[0]}
+    level={workoutLevel}
+    category={selectedWorkout}
+    onBack={() => setPage(previousPage || "tracker")}
+    onComplete={(completedId) => {
+      const idToSave = completedId || selectedExercise?.id || selectedExercise?.name;
+      if (idToSave) {
+        setCompletedExercises((prev) =>
+          prev.includes(idToSave) ? prev : [...prev, idToSave]
+        );
+      }
+    }}
+    onSaveWorkout={(summaryData) => {
+      const workout = {
+        date: new Date().toLocaleDateString(),
+        level: summaryData.level || selectedWorkout || workoutLevel,
+        count: summaryData.count || currentCompletedExercises.length || 1,
+        calories: summaryData.calories || caloriesBurned || 35,
+      };
+      setHistory((prev) => [...prev, workout]);
+      const toRemove = new Set(
+        currentCompletedExercises.flatMap((e) => [e.id, e.name])
+      );
+      setCompletedExercises((prev) =>
+        prev.filter((id) => !toRemove.has(id))
+      );
+    }}
+    completedExercises={completedExercises}
+  />
+)}
+
 
       {/* =========================
           PROGRESS
