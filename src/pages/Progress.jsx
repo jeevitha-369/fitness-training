@@ -6,65 +6,76 @@ export default function Progress({
   selectedWorkout,
   onNavigate,
 }) {
-  const beginnerEx = WORKOUT_CATEGORIES_DATA.Beginner.exercises;
-  const intermediateEx = WORKOUT_CATEGORIES_DATA.Intermediate.exercises;
-  const advancedEx = WORKOUT_CATEGORIES_DATA.Advanced.exercises;
-
-  const beginnerDone = beginnerEx.filter((e) => completedExercises.includes(e.id));
-  const intermediateDone = intermediateEx.filter((e) => completedExercises.includes(e.id));
-  const advancedDone = advancedEx.filter((e) => completedExercises.includes(e.id));
-
-  const beginnerPct = Math.round((beginnerDone.length / beginnerEx.length) * 100);
-  const intermediatePct = Math.round((intermediateDone.length / intermediateEx.length) * 100);
-  const advancedPct = Math.round((advancedDone.length / advancedEx.length) * 100);
-
-  const bodyParts = ["Legs", "Arms", "Chest", "Back", "Shoulders", "Core"];
-
   const totalSessions = workoutHistory.length;
-  const totalCaloriesBurned = workoutHistory.reduce(
-    (acc, c) => acc + (c.calories || 0),
-    0
+
+  const totalCaloriesBurned =
+    workoutHistory.reduce((acc, curr) => acc + (curr.calories || 0), 0) +
+    completedExercises.length * 8;
+
+  // Level breakdowns
+  const beginnerEx = WORKOUT_CATEGORIES_DATA.Beginner?.exercises || [];
+  const beginnerDone = beginnerEx.filter((e) => completedExercises.includes(e.id));
+  const beginnerPct =
+    beginnerEx.length > 0
+      ? Math.round((beginnerDone.length / beginnerEx.length) * 100)
+      : 0;
+
+  const intermediateEx = WORKOUT_CATEGORIES_DATA.Intermediate?.exercises || [];
+  const intermediateDone = intermediateEx.filter((e) =>
+    completedExercises.includes(e.id)
   );
+  const intermediatePct =
+    intermediateEx.length > 0
+      ? Math.round((intermediateDone.length / intermediateEx.length) * 100)
+      : 0;
+
+  const advancedEx = WORKOUT_CATEGORIES_DATA.Advanced?.exercises || [];
+  const advancedDone = advancedEx.filter((e) => completedExercises.includes(e.id));
+  const advancedPct =
+    advancedEx.length > 0
+      ? Math.round((advancedDone.length / advancedEx.length) * 100)
+      : 0;
 
   return (
     <div className="progress-page-container">
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-content">
-          <span className="page-overline">PERFORMANCE ANALYTICS</span>
-          <h1 className="page-title">Fitness Progress &amp; Program Mastery</h1>
+          <span className="page-overline">ANALYTICS &amp; MASTERY</span>
+          <h1 className="page-title">Training Progress &amp; Level Metrics</h1>
           <p className="page-subtitle">
-            Track your progress across difficulty levels and body part categories. Each program retains isolated, verifiable completion metrics.
+            Track your exercise completion and level mastery.
           </p>
         </div>
+
         <div className="page-header-actions">
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => onNavigate("history")}
+            onClick={() => onNavigate("tracker")}
           >
-            ⏱️ View Workout History ({totalSessions})
+            🎯 Continue Daily Session
           </button>
         </div>
       </div>
 
-      {/* Top Metrics Cards */}
-      <section className="stats-grid">
+      {/* Top Stat Cards */}
+      <section className="progress-stats-grid">
         <div className="stat-card">
           <div className="stat-icon-wrapper icon-indigo">🏆</div>
           <div className="stat-info">
             <span className="stat-label">TOTAL WORKOUT SESSIONS</span>
             <h3 className="stat-value">{totalSessions}</h3>
-            <span className="stat-sub">Officially Logged</span>
+            <span className="stat-sub">Completed &amp; Logged</span>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon-wrapper icon-emerald">💪</div>
           <div className="stat-info">
-            <span className="stat-label">UNIQUE EXERCISES MASTERED</span>
+            <span className="stat-label">EXERCISES MASTERED</span>
             <h3 className="stat-value">{completedExercises.length}</h3>
-            <span className="stat-sub">Completed Across All Levels</span>
+            <span className="stat-sub">Across All 3 Levels</span>
           </div>
         </div>
 
@@ -72,7 +83,9 @@ export default function Progress({
           <div className="stat-icon-wrapper icon-rose">🔥</div>
           <div className="stat-info">
             <span className="stat-label">ESTIMATED ENERGY BURNED</span>
-            <h3 className="stat-value">{totalCaloriesBurned} <span className="stat-unit">kcal</span></h3>
+            <h3 className="stat-value">
+              {totalCaloriesBurned} <span className="stat-unit">kcal</span>
+            </h3>
             <span className="stat-sub">From Completed Sessions</span>
           </div>
         </div>
@@ -91,9 +104,9 @@ export default function Progress({
       <section className="progress-section">
         <div className="section-title-row">
           <div>
-            <h2 className="section-title">Difficulty Level Progress Isolation</h2>
+            <h2 className="section-title">Level Progress Breakdown</h2>
             <p className="section-subtitle">
-              Verified isolation ensures completing exercises in one level does NOT leak into or falsely mark exercises in other levels.
+              Mastered movements update your progress in each training tier.
             </p>
           </div>
         </div>
@@ -209,38 +222,6 @@ export default function Progress({
               })}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Body Parts Programs Progress */}
-      <section className="progress-section">
-        <div className="section-title-row">
-          <div>
-            <h2 className="section-title">Muscle Group Specific Mastery</h2>
-            <p className="section-subtitle">
-              Progress tracked for targeted anatomical categories.
-            </p>
-          </div>
-        </div>
-
-        <div className="body-parts-progress-grid">
-          {bodyParts.map((bp) => {
-            const bpEx = WORKOUT_CATEGORIES_DATA[bp]?.exercises || [];
-            const bpDone = bpEx.filter((e) => completedExercises.includes(e.id));
-            const pct = bpEx.length > 0 ? Math.round((bpDone.length / bpEx.length) * 100) : 0;
-
-            return (
-              <div key={bp} className="body-part-progress-card">
-                <div className="bp-card-top">
-                  <strong>{bp} Program</strong>
-                  <span className="bp-count">{bpDone.length}/{bpEx.length} Done ({pct}%)</span>
-                </div>
-                <div className="bp-progress-bar">
-                  <div className="bp-progress-fill" style={{ width: `${pct}%` }}></div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
     </div>

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { WORKOUT_CATEGORIES_DATA } from "../data/workoutData";
 
 export default function WorkoutPlans({
@@ -7,16 +6,9 @@ export default function WorkoutPlans({
   onOpenGuide,
   completedExercises = [],
 }) {
-  const [filterTab, setFilterTab] = useState("all");
-
-  const plansList = Object.values(WORKOUT_CATEGORIES_DATA);
-
-  const filteredPlans = plansList.filter((plan) => {
-    if (filterTab === "all") return true;
-    if (filterTab === "levels") return plan.type === "level";
-    if (filterTab === "bodyParts") return plan.type === "bodyPart";
-    return true;
-  });
+  const primaryLevels = ["Beginner", "Intermediate", "Advanced"].map(
+    (lvl) => WORKOUT_CATEGORIES_DATA[lvl]
+  );
 
   const getDifficultyColor = (intensity) => {
     switch (intensity?.toLowerCase()) {
@@ -27,8 +19,6 @@ export default function WorkoutPlans({
         return "badge-medium";
       case "high":
         return "badge-hard";
-      case "targeted":
-        return "badge-targeted";
       default:
         return "badge-neutral";
     }
@@ -39,42 +29,18 @@ export default function WorkoutPlans({
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-content">
-          <span className="page-overline">STRUCTURED TRAINING CATALOG</span>
-          <h1 className="page-title">Workout Plans &amp; Muscle Programs</h1>
+          <span className="page-overline">TRAINING CURRICULUM</span>
+          <h1 className="page-title">Workout Levels &amp; Video Programs</h1>
           <p className="page-subtitle">
-            Select a tailored workout program based on your fitness goals, experience level, or target muscle group.
+            Choose your training level to follow video demonstrations and guided exercises.
           </p>
-        </div>
-
-        {/* Filter Pills */}
-        <div className="filter-pill-bar">
-          <button
-            type="button"
-            className={`filter-pill ${filterTab === "all" ? "active" : ""}`}
-            onClick={() => setFilterTab("all")}
-          >
-            All Programs ({plansList.length})
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${filterTab === "levels" ? "active" : ""}`}
-            onClick={() => setFilterTab("levels")}
-          >
-            ⚡ By Difficulty (3)
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${filterTab === "bodyParts" ? "active" : ""}`}
-            onClick={() => setFilterTab("bodyParts")}
-          >
-            💪 Muscle Groups (6)
-          </button>
         </div>
       </div>
 
-      {/* Grid of Workout Plan Cards */}
+      {/* Grid of 3 Workout Level Cards */}
       <div className="plans-grid">
-        {filteredPlans.map((plan) => {
+        {primaryLevels.map((plan) => {
+          if (!plan) return null;
           const isSelected = selectedWorkout === plan.name;
           const planExercises = plan.exercises || [];
           const completedInThisPlan = planExercises.filter((ex) =>
@@ -103,14 +69,16 @@ export default function WorkoutPlans({
                   </span>
                   <span className="plan-duration-badge">⏱️ {plan.duration}</span>
                 </div>
-                <h2 className="plan-name">{plan.name} Workout</h2>
+                <h2 className="plan-name">
+                  <span className="plan-icon">{plan.icon}</span> {plan.name} Routine
+                </h2>
                 <p className="plan-desc">{plan.description}</p>
               </div>
 
               {/* Progress Bar inside Plan Card */}
               <div className="plan-progress-box">
                 <div className="plan-progress-meta">
-                  <span>Progress ({completedInThisPlan.length}/{planExercises.length})</span>
+                  <span>Progress ({completedInThisPlan.length}/{planExercises.length} Done)</span>
                   <strong>{planProgress}%</strong>
                 </div>
                 <div className="plan-progress-bar">
@@ -123,18 +91,24 @@ export default function WorkoutPlans({
 
               {/* Exercise Pills Preview */}
               <div className="plan-exercises-preview">
-                <span className="preview-label">Exercises Included ({planExercises.length}):</span>
+                <span className="preview-label">Exercises &amp; Demonstrations ({planExercises.length}):</span>
                 <div className="exercise-chips-wrap">
-                  {planExercises.map((ex) => (
-                    <span
-                      key={ex.id}
-                      className={`exercise-chip ${completedExercises.includes(ex.id) ? "done" : ""}`}
-                      title={`${ex.name} — ${ex.target}`}
-                    >
-                      {completedExercises.includes(ex.id) ? "✓ " : ""}
-                      {ex.name}
-                    </span>
-                  ))}
+                  {planExercises.map((ex) => {
+                    const isDone = completedExercises.includes(ex.id);
+                    return (
+                      <button
+                        key={ex.id}
+                        type="button"
+                        className={`exercise-chip ${isDone ? "done" : ""}`}
+                        title={`Click to open video demonstration for ${ex.name}`}
+                        onClick={() => onOpenGuide(plan.name, ex)}
+                      >
+                        {isDone ? "✓ " : ex.hasLocalVideo ? "🎥 " : "📝 "}
+                        {ex.name}
+                        <span className="chip-target-text">({ex.target})</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -151,9 +125,9 @@ export default function WorkoutPlans({
                   type="button"
                   className="btn btn-outline plan-guide-btn"
                   onClick={() => onOpenGuide(plan.name)}
-                  title="Open Form Guidance and Video Demonstrations"
+                  title="Open video demonstrations and form instructions"
                 >
-                  🎥 View Guide &amp; 3D
+                  🎥 Watch Video Guides
                 </button>
               </div>
             </div>

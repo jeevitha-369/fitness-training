@@ -45,7 +45,7 @@ export default function WorkoutHistory({
           <span className="page-overline">PERMANENT LOG BOOK</span>
           <h1 className="page-title">Workout History &amp; Session Archive</h1>
           <p className="page-subtitle">
-            Every completed workout session is permanently recorded with timestamp, exercise IDs, calories, and duration.
+            Review your completed workout sessions and statistics.
           </p>
         </div>
 
@@ -129,25 +129,29 @@ export default function WorkoutHistory({
         </div>
       )}
 
-      {/* History List or Empty State */}
+      {/* History List or Friendly Empty State */}
       {filteredHistory.length === 0 ? (
         <div className="empty-history-card">
           <div className="empty-icon-large">🏋️</div>
           <h2 className="empty-title">
             {totalSessions === 0
               ? "No Workout Sessions Logged Yet"
-              : "No sessions matching the selected filter"}
+              : "No sessions matching this filter"}
           </h2>
           <p className="empty-desc">
-            Complete your daily exercises in the Exercise Tracker and click &quot;Finish &amp; Log Workout&quot; to archive your training records.
+            {totalSessions === 0
+              ? "Complete your daily exercises in the Exercise Tracker to start building your workout history."
+              : "Select 'All Sessions' to view your full workout archive."}
           </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => onNavigate("tracker")}
-          >
-            🎯 Start a Workout Now
-          </button>
+          {totalSessions === 0 && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => onNavigate("tracker")}
+            >
+              🎯 Start Your First Workout
+            </button>
+          )}
         </div>
       ) : (
         <div className="history-cards-list">

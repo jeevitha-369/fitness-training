@@ -5,15 +5,15 @@ import * as THREE from "three";
 // Reusable 3D Props
 function ExerciseMat() {
   return (
-    <group position={[0, 0.015, 0]}>
-      {/* Yoga / workout mat */}
+    <group position={[0, 0.015, -0.3]}>
+      {/* Extended workout mat providing grounding for full body, forearms and toes */}
       <mesh receiveShadow position={[0, 0, 0]}>
-        <boxGeometry args={[1.5, 0.03, 2.6]} />
+        <boxGeometry args={[1.4, 0.03, 3.2]} />
         <meshStandardMaterial color="#6c5ce7" roughness={0.7} />
       </mesh>
-      {/* Decorative mat alignment stripe */}
-      <mesh position={[0, 0.031, 0]}>
-        <boxGeometry args={[0.04, 0.002, 2.4]} />
+      {/* Decorative center alignment strip */}
+      <mesh position={[0, 0.016, 0]}>
+        <boxGeometry args={[0.04, 0.002, 3.0]} />
         <meshStandardMaterial color="#a29bfe" roughness={0.5} />
       </mesh>
     </group>
@@ -22,26 +22,47 @@ function ExerciseMat() {
 
 function StudioWall() {
   return (
-    <group position={[0, 1.6, 0.82]}>
-      {/* Wall panel */}
+    <group position={[0, 1.6, 0.86]}>
+      {/* Architectural Studio Wall Panel */}
       <mesh receiveShadow position={[0, 0, 0]}>
-        <boxGeometry args={[4.2, 3.4, 0.18]} />
-        <meshStandardMaterial color="#dcd6f7" roughness={0.85} />
+        <boxGeometry args={[4.2, 3.4, 0.16]} />
+        <meshStandardMaterial color="#ebe6fc" roughness={0.85} />
       </mesh>
-      {/* Baseboard trim */}
-      <mesh position={[0, -1.6, 0.06]}>
-        <boxGeometry args={[4.2, 0.16, 0.08]} />
-        <meshStandardMaterial color="#b8b0e8" roughness={0.6} />
+      {/* Vertical architectural divider seams */}
+      <mesh position={[-1.2, 0, 0.082]}>
+        <boxGeometry args={[0.02, 3.4, 0.005]} />
+        <meshStandardMaterial color="#d4ccf5" roughness={0.6} />
       </mesh>
-      {/* Target hand guide markers */}
-      <mesh position={[-0.32, 0.1, 0.1]}>
-        <circleGeometry args={[0.08, 24]} />
-        <meshStandardMaterial color="#6c5ce7" roughness={0.4} opacity={0.6} transparent />
+      <mesh position={[1.2, 0, 0.082]}>
+        <boxGeometry args={[0.02, 3.4, 0.005]} />
+        <meshStandardMaterial color="#d4ccf5" roughness={0.6} />
       </mesh>
-      <mesh position={[0.32, 0.1, 0.1]}>
-        <circleGeometry args={[0.08, 24]} />
-        <meshStandardMaterial color="#6c5ce7" roughness={0.4} opacity={0.6} transparent />
+      {/* Studio Baseboard trim */}
+      <mesh position={[0, -1.6, 0.08]}>
+        <boxGeometry args={[4.2, 0.18, 0.04]} />
+        <meshStandardMaterial color="#a29bfe" roughness={0.6} />
       </mesh>
+      {/* Target Hand Contact Guide Rings at chest height (y = 1.38) */}
+      <group position={[0, -0.22, 0.084]}>
+        {/* Left hand guide ring */}
+        <mesh position={[-0.34, 0, 0]}>
+          <circleGeometry args={[0.09, 32]} />
+          <meshStandardMaterial color="#6c5ce7" roughness={0.3} opacity={0.65} transparent />
+        </mesh>
+        <mesh position={[-0.34, 0, 0.002]}>
+          <ringGeometry args={[0.07, 0.085, 32]} />
+          <meshStandardMaterial color="#00cec9" emissive="#00cec9" emissiveIntensity={0.6} />
+        </mesh>
+        {/* Right hand guide ring */}
+        <mesh position={[0.34, 0, 0]}>
+          <circleGeometry args={[0.09, 32]} />
+          <meshStandardMaterial color="#6c5ce7" roughness={0.3} opacity={0.65} transparent />
+        </mesh>
+        <mesh position={[0.34, 0, 0.002]}>
+          <ringGeometry args={[0.07, 0.085, 32]} />
+          <meshStandardMaterial color="#00cec9" emissive="#00cec9" emissiveIntensity={0.6} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -187,22 +208,34 @@ export default function HumanModel3D({
     let targetLKneeX = 0, targetRKneeX = 0;
     let targetLFootX = 0, targetRFootX = 0;
 
-    // 1. JUMPING JACKS
+    // 1. JUMPING JACKS (Fluid, human-scaled, athletic jumping jacks)
     if (norm.includes("jumpingjack")) {
-      const cycle = (Math.sin(t * 3.6) + 1) / 2; // 0..1..0
-      const jump = Math.sin(t * 3.6);
-      targetRootY = Math.max(0, jump * 0.12);
-      // Legs spread out
-      targetLHipZ = -0.32 * cycle;
-      targetRHipZ = 0.32 * cycle;
-      // Slight knee softening
-      targetLKneeX = (1 - cycle) * 0.15;
-      targetRKneeX = (1 - cycle) * 0.15;
-      // Arms sweep overhead in wide arc
-      targetLArmZ = -0.15 - cycle * 2.65;
-      targetRArmZ = 0.15 + cycle * 2.65;
-      targetLElbowZ = -0.15 * cycle;
-      targetRElbowZ = 0.15 * cycle;
+      const pace = t * 2.8; // Beginner-friendly, rhythmic tempo (~2.2s per full rep)
+      const cycle = (1 - Math.cos(pace)) / 2; // 0 (start: feet together, arms down) -> 1 (open: feet apart, arms overhead)
+      const hop = Math.abs(Math.sin(pace)); // Dynamic flight hop during both opening and closing transitions
+
+      // Upward flight hop during transitions
+      targetRootY = hop * 0.20;
+
+      // Starting position (cycle = 0): feet together, tall spine, arms at sides
+      // Jumping phase (cycle = 1): feet spread wide (~25 deg), arms raised high overhead
+      targetLHipZ = -0.45 * cycle; // Left leg sweeps outward
+      targetRHipZ = 0.45 * cycle;  // Right leg sweeps outward
+
+      // Soft knee flexion upon landing to absorb impact naturally
+      targetLKneeX = 0.12 * cycle + 0.08 * (1 - cycle);
+      targetRKneeX = 0.12 * cycle + 0.08 * (1 - cycle);
+
+      // Arms sweep in a wide, fluid arc overhead
+      // At cycle = 0: arms resting naturally at sides (-0.08, 0.08)
+      // At cycle = 1: hands meet overhead in wide energetic arc (-2.80, 2.80)
+      targetLArmZ = -0.08 - cycle * 2.72;
+      targetRArmZ = 0.08 + cycle * 2.72;
+      targetLElbowZ = -0.10 * cycle;
+      targetRElbowZ = 0.10 * cycle;
+
+      // Slight natural torso engagement
+      targetTorsoRotX = 0.02 * cycle;
     }
     // 2. BODYWEIGHT SQUATS & SQUATS
     else if (norm === "squats" || norm.includes("bodyweightsquat")) {
@@ -250,19 +283,30 @@ export default function HumanModel3D({
         targetRFootX = 0.35;
       }
     }
-    // 4. WALL PUSH-UPS
+    // 4. WALL PUSH-UPS (Anchored feet, rigid body plank, visible wall contact & elbow flexion)
     else if (norm.includes("wallpushup")) {
-      const cycle = (1 - Math.cos(t * 1.9)) / 2; // 0..1..0
-      targetRootRotX = 0.18; // Leaning towards wall
-      targetRootZ = 0.15 + cycle * 0.12; // Chest moves in
-      // Arms raised to wall
-      targetLArmX = -1.45 - cycle * 0.15;
-      targetRArmX = -1.45 - cycle * 0.15;
-      targetLArmZ = -0.15 - cycle * 0.45; // Elbows flare back/out smoothly
-      targetRArmZ = 0.15 + cycle * 0.45;
-      targetLElbowX = 0.15 + cycle * 0.95; // Elbow flexion
-      targetRElbowX = 0.15 + cycle * 0.95;
-      targetTorsoRotX = -0.08 * cycle;
+      const cycle = (1 - Math.cos(t * 1.8)) / 2; // 0 (extended) -> 1 (chest to wall) -> 0
+
+      // Body pivots as a straight rigid plank from the anchored feet
+      targetRootRotX = 0.26 + cycle * 0.12; // Leaning forward toward the wall
+      targetRootZ = -0.22 + cycle * 0.16;   // Chest and shoulders advance toward the wall
+      targetRootY = 0;                      // Feet remain grounded on the floor
+
+      // Arms: Start fully extended with palms pressing against the wall at chest height;
+      // In descent: elbows bend back and outward to 90 degrees as chest lowers to the wall
+      targetLArmX = -1.48 + 0.12 * cycle;
+      targetRArmX = -1.48 + 0.12 * cycle;
+      targetLArmZ = -0.12 - 0.35 * cycle;
+      targetRArmZ = 0.12 + 0.35 * cycle;
+      targetLElbowX = 0.12 + 1.28 * cycle; // Elbow flexion to 90 degrees
+      targetRElbowX = 0.12 + 1.28 * cycle;
+
+      // Feet: Stay firmly planted on the floor without sliding
+      targetLFootX = -0.25 - cycle * 0.12;
+      targetRFootX = -0.25 - cycle * 0.12;
+
+      // Spine & core: Perfect straight-line posture without sagging or arching
+      targetTorsoRotX = 0;
     }
     // 5. LUNGES
     else if (norm === "lunges") {
@@ -354,18 +398,41 @@ export default function HumanModel3D({
         targetLArmX = 0.7 * absRun;
       }
     }
-    // 9. PLANK
-    else if (norm === "plank") {
-      targetRootRotX = -Math.PI / 2 + 0.12; // Horizontal prone plank
-      targetRootY = 0.32;
-      targetTorsoRotX = 0.02 * Math.sin(t * 2.0); // Subtle isometric breathing
-      // Forearms on mat
-      targetLArmX = -1.45;
-      targetRArmX = -1.45;
-      targetLElbowX = -1.55;
-      targetRElbowX = -1.55;
-      targetLFootX = 0.55; // Toes tucked on floor
-      targetRFootX = 0.55;
+    // 9. PLANK (Forearms supporting upper body, elbows beneath shoulders, toes planted, straight alignment)
+    else if (norm === "plank" || norm.includes("plank")) {
+      targetRootRotX = 1.49; // Prone horizontal alignment facing downward toward the mat
+      targetRootY = 0.28;    // Calibrated height for forearm & toe grounding on mat
+      targetRootZ = -0.70;   // Centered squarely on the mat
+
+      // Calm isometric respiration: subtle natural breathing movement only
+      targetTorsoRotX = 0.008 * Math.sin(t * 1.5);
+
+      // Upper arms vertical from shoulders straight down to the mat
+      targetLArmX = -1.52;
+      targetRArmX = -1.52;
+      targetLArmZ = -0.04;
+      targetRArmZ = 0.04;
+
+      // Forearms flat on mat supporting upper body, elbows directly beneath shoulders
+      targetLElbowX = -1.54;
+      targetRElbowX = -1.54;
+      targetLElbowZ = 0;
+      targetRElbowZ = 0;
+
+      // Stable, unbroken straight alignment from shoulders through hips to heels
+      targetLHipX = -0.05;
+      targetRHipX = -0.05;
+      targetLHipZ = -0.05;
+      targetRHipZ = 0.05;
+      targetLKneeX = 0;
+      targetRKneeX = 0;
+
+      // Toes tucked and planted firmly on the mat supporting the lower body
+      targetLFootX = -0.55;
+      targetRFootX = -0.55;
+
+      // Neutral cervical spine: head aligned with spine, looking down toward the floor/mat
+      targetHeadRotX = 0;
     }
     // 10. PUSH-UPS
     else if (norm === "pushups") {

@@ -83,7 +83,7 @@ export default function ExerciseTracker({
   };
 
   const planMeta = WORKOUT_CATEGORIES_DATA[selectedWorkout] || {
-    intensity: "Custom",
+    intensity: "Moderate",
     duration: "20 min",
     description: "Daily exercise routine.",
   };
@@ -100,7 +100,7 @@ export default function ExerciseTracker({
           </div>
           <h1 className="tracker-title">{selectedWorkout} Workout Routine</h1>
           <p className="tracker-subtitle">
-            Perform each movement with controlled tempo. Click on any exercise name to view 3D motion simulations and verified human form demonstrations.
+            Perform each movement with controlled tempo. Click any exercise to view video instructions.
           </p>
         </div>
         <div className="tracker-header-actions">
@@ -175,9 +175,9 @@ export default function ExerciseTracker({
                       type="button"
                       className="btn-guidance-peek"
                       onClick={() => onOpenExerciseGuide(exercise)}
-                      title="Open 3D guide & video"
+                      title="Open video guide & form instructions"
                     >
-                      🎥 Form Guide
+                      🎥 Video Guide
                     </button>
 
                     <button

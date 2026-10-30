@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FitTrack 3D Studio</title>
+  <style>
+    body { margin: 0; background: #0f111a; color: #fff; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+    #container { width: 960px; height: 540px; box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 12px; overflow: hidden; border: 1px solid #2d3436; }
+    #status { margin-top: 16px; font-size: 15px; color: #00cec9; letter-spacing: 0.5px; }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="status">Initializing 3D Studio...</div>
+
+  <script type="module">
+    import * as THREE from '/three/three.module.js';
+
+    const container = document.getElementById('container');
+    const statusEl = document.getElementById('status');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#0f111a');
+
+    const camera = new THREE.PerspectiveCamera(45, 960 / 540, 0.1, 100);
+    camera.position.set(0, 1.25, 3.6);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      preserveDrawingBuffer: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(960, 540);
+    renderer.setPixelRatio(1.0);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    // Studio Lights
+    const hemiLight = new THREE.HemisphereLight('#ffffff', '#3b335c', 1.1);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight('#ffffff', 1.9);
+    keyLight.position.set(3.2, 5.2, 4.2);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 1024;
+    keyLight.shadow.mapSize.height = 1024;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight('#a29bfe', 0.95);
+    fillLight.position.set(-3.2, 3.2, -2.0);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight('#00cec9', 0.65);
+    rimLight.position.set(0, 3.5, -4.2);
+    scene.add(rimLight);
+
+    // Studio Floor
+    const floorGeo = new THREE.PlaneGeometry(24, 24);
+    const floorMat = new THREE.MeshStandardMaterial({ color: '#161922', roughness: 0.85 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.01;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Studio Grid
+    const grid = new THREE.GridHelper(14, 28, '#2d3436', '#1a1d26');
+    grid.position.y = 0;
+    scene.add(grid);
+
+    // Exercise Mat Prop
+    const matGroup = new THREE.Group();
+    matGroup.position.set(0, 0.015, -0.3);
+    const matMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.03, 3.2),
+      new THREE.MeshStandardMaterial({ color: '#6c5ce7', roughness: 0.7 })
+    );
+    matMesh.receiveShadow = true;
+    matGroup.add(matMesh);
+    const matStripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.04, 0.002, 3.0),
+      new THREE.MeshStandardMaterial({ color: '#a29bfe', roughness: 0.5 })
+    );
+    matStripe.position.set(0, 0.016, 0);
+    matGroup.add(matStripe);
+    scene.add(matGroup);
+    matGroup.visible = false;
+
+    // Studio Wall Prop (for Wall Push-Ups)
+    const wallGroup = new THREE.Group();
+    wallGroup.position.set(0, 1.6, 0.86);
+    const wallMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 3.4, 0.16),
+      new THREE.MeshStandardMaterial({ color: '#252936', roughness: 0.85 })
+    );
+    wallMesh.receiveShadow = true;
+    wallGroup.add(wallMesh);
+    const baseboard = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 0.18, 0.04),
+      new THREE.MeshStandardMaterial({ color: '#6c5ce7', roughness: 0.6 })
+    );
+    baseboard.position.set(0, -1.6, 0.08);
+    wallGroup.add(baseboard);
+
+    // Wall Contact Target Guides
+    const ringL = new THREE.Mesh(
+      new THREE.RingGeometry(0.07, 0.085, 32),
+      new THREE.MeshStandardMaterial({ color: '#00cec9', emissive: '#00cec9', emissiveIntensity: 0.6 })
+    );
+    ringL.position.set(-0.34, -0.22, 0.086);
+    wallGroup.add(ringL);
+    const ringR = new THREE.Mesh(
+      new THREE.RingGeometry(0.07, 0.085, 32),
+      new THREE.MeshStandardMaterial({ color: '#00cec9', emissive: '#00cec9', emissiveIntensity: 0.6 })
+    );
+    ringR.position.set(0.34, -0.22, 0.086);
+    wallGroup.add(ringR);
+    scene.add(wallGroup);
+    wallGroup.visible = false;
+
+    // FitTrack 3D Human Avatar Model Construction (Seamless Connected Joints)
+    const charRoot = new THREE.Group();
+    scene.add(charRoot);
+
+    const hips = new THREE.Group();
+    hips.position.set(0, 1.05, 0);
+    charRoot.add(hips);
+
+    const shortsMat = new THREE.MeshStandardMaterial({ color: '#2d3436', roughness: 0.7 });
+    const violetMat = new THREE.MeshStandardMaterial({ color: '#6c5ce7', roughness: 0.6 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: '#e5a67c', roughness: 0.7 });
+    const shirtMat = new THREE.MeshStandardMaterial({ color: '#5b4bc4', roughness: 0.6 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: '#2d3436', roughness: 0.9 });
+    const whiteMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 });
+    const darkEyeMat = new THREE.MeshStandardMaterial({ color: '#1e272e' });
+    const smileMat = new THREE.MeshStandardMaterial({ color: '#c0392b' });
+
+    // Pelvis / Shorts
+    const shortsMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.25, 0.28, 24), shortsMat);
+    shortsMesh.castShadow = true;
+    hips.add(shortsMesh);
+    const stripeL = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.28, 0.05), violetMat);
+    stripeL.position.set(-0.235, 0, 0);
+    hips.add(stripeL);
+    const stripeR = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.28, 0.05), violetMat);
+    stripeR.position.set(0.235, 0, 0);
+    hips.add(stripeR);
+
+    // Torso Group
+    const torso = new THREE.Group();
+    torso.position.set(0, 0.14, 0);
+    hips.add(torso);
+
+    const midriff = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.22, 24), violetMat);
+    midriff.position.set(0, 0.11, 0);
+    midriff.castShadow = true;
+    torso.add(midriff);
+
+    const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.24, 0.32, 24), shirtMat);
+    chest.position.set(0, 0.36, 0);
+    chest.castShadow = true;
+    torso.add(chest);
+
+    // FitTrack Chest Logo
+    const logo = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.055, 0.01),
+      new THREE.MeshStandardMaterial({ color: '#00cec9', emissive: '#00cec9', emissiveIntensity: 0.4 }));
+    logo.position.set(0, 0.38, 0.255);
+    torso.add(logo);
+
+    // Neck
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.11, 0.14, 20), skinMat);
+    neck.position.set(0, 0.56, 0);
+    torso.add(neck);
+
+    // Head
+    const head = new THREE.Group();
+    head.position.set(0, 0.72, 0);
+    torso.add(head);
+
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.21, 24, 24), skinMat);
+    skull.castShadow = true;
+    head.add(skull);
+
+    // Headband
+    const headband = new THREE.Mesh(new THREE.CylinderGeometry(0.225, 0.225, 0.06, 32), violetMat);
+    headband.position.set(0, 0.06, 0);
+    head.add(headband);
+
+    // Hair & Top bun
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 24), hairMat);
+    hair.scale.set(0.23, 0.15, 0.24);
+    hair.position.set(0, 0.15, -0.04);
+    head.add(hair);
+
+    const hairBun = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), hairMat);
+    hairBun.scale.set(0.11, 0.09, 0.11);
+    hairBun.position.set(0, 0.23, -0.09);
+    head.add(hairBun);
+
+    // Eyes
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.025, 16, 16), darkEyeMat);
+    eyeL.position.set(-0.08, 0.01, 0.21);
+    head.add(eyeL);
+    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.025, 16, 16), darkEyeMat);
+    eyeR.position.set(0.08, 0.01, 0.21);
+    head.add(eyeR);
+
+    // Smile
+    const smile = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), smileMat);
+    smile.scale.set(0.06, 0.018, 0.015);
+    smile.position.set(0, -0.09, 0.215);
+    head.add(smile);
+
+    // Left Arm (with Joint Sphere to eliminate gaps)
+    const leftShoulder = new THREE.Group();
+    leftShoulder.position.set(-0.33, 0.44, 0);
+    torso.add(leftShoulder);
+    const lShoulderMesh = new THREE.Mesh(new THREE.SphereGeometry(0.105, 20, 20), shirtMat);
+    leftShoulder.add(lShoulderMesh);
+    const lUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.075, 0.28, 20), skinMat);
+    lUpperArm.position.set(0, -0.14, 0);
+    lUpperArm.castShadow = true;
+    leftShoulder.add(lUpperArm);
+
+    const leftElbow = new THREE.Group();
+    leftElbow.position.set(0, -0.28, 0);
+    leftShoulder.add(leftElbow);
+    const lElbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.076, 20, 20), skinMat);
+    leftElbow.add(lElbowJoint);
+    const lForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.065, 0.26, 20), skinMat);
+    lForearm.position.set(0, -0.13, 0);
+    lForearm.castShadow = true;
+    leftElbow.add(lForearm);
+    const lHand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), skinMat);
+    lHand.position.set(0, -0.27, 0);
+    leftElbow.add(lHand);
+
+    // Right Arm (with Joint Sphere to eliminate gaps)
+    const rightShoulder = new THREE.Group();
+    rightShoulder.position.set(0.33, 0.44, 0);
+    torso.add(rightShoulder);
+    const rShoulderMesh = new THREE.Mesh(new THREE.SphereGeometry(0.105, 20, 20), shirtMat);
+    rightShoulder.add(rShoulderMesh);
+    const rUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.075, 0.28, 20), skinMat);
+    rUpperArm.position.set(0, -0.14, 0);
+    rUpperArm.castShadow = true;
+    rightShoulder.add(rUpperArm);
+
+    const rightElbow = new THREE.Group();
+    rightElbow.position.set(0, -0.28, 0);
+    rightShoulder.add(rightElbow);
+    const rElbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.076, 20, 20), skinMat);
+    rightElbow.add(rElbowJoint);
+    const rForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.065, 0.26, 20), skinMat);
+    rForearm.position.set(0, -0.13, 0);
+    rForearm.castShadow = true;
+    rightElbow.add(rForearm);
+    const rHand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), skinMat);
+    rHand.position.set(0, -0.27, 0);
+    rightElbow.add(rHand);
+
+    // Left Leg (with Joint Spheres at Hip, Knee, and Ankle)
+    const leftHip = new THREE.Group();
+    leftHip.position.set(-0.15, -0.12, 0);
+    hips.add(leftHip);
+    const lHipJoint = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 20), shortsMat);
+    leftHip.add(lHipJoint);
+    const lThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.095, 0.38, 24), shortsMat);
+    lThigh.position.set(0, -0.19, 0);
+    lThigh.castShadow = true;
+    leftHip.add(lThigh);
+
+    const leftKnee = new THREE.Group();
+    leftKnee.position.set(0, -0.38, 0);
+    leftHip.add(leftKnee);
+    const lKneeJoint = new THREE.Mesh(new THREE.SphereGeometry(0.095, 20, 20), skinMat);
+    leftKnee.add(lKneeJoint);
+    const lCalf = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.072, 0.38, 20), skinMat);
+    lCalf.position.set(0, -0.19, 0);
+    lCalf.castShadow = true;
+    leftKnee.add(lCalf);
+
+    const leftFoot = new THREE.Group();
+    leftFoot.position.set(0, -0.38, 0);
+    leftKnee.add(leftFoot);
+    const lAnkleJoint = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 16), skinMat);
+    leftFoot.add(lAnkleJoint);
+    const lSneaker = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), whiteMat);
+    lSneaker.scale.set(0.13, 0.09, 0.24);
+    lSneaker.position.set(0, -0.04, 0.06);
+    lSneaker.castShadow = true;
+    leftFoot.add(lSneaker);
+    const lSole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.26), violetMat);
+    lSole.position.set(0, -0.09, 0.06);
+    leftFoot.add(lSole);
+
+    // Right Leg (with Joint Spheres at Hip, Knee, and Ankle)
+    const rightHip = new THREE.Group();
+    rightHip.position.set(0.15, -0.12, 0);
+    hips.add(rightHip);
+    const rHipJoint = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 20), shortsMat);
+    rightHip.add(rHipJoint);
+    const rThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.095, 0.38, 24), shortsMat);
+    rThigh.position.set(0, -0.19, 0);
+    rThigh.castShadow = true;
+    rightHip.add(rThigh);
+
+    const rightKnee = new THREE.Group();
+    rightKnee.position.set(0, -0.38, 0);
+    rightHip.add(rightKnee);
+    const rKneeJoint = new THREE.Mesh(new THREE.SphereGeometry(0.095, 20, 20), skinMat);
+    rightKnee.add(rKneeJoint);
+    const rCalf = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.072, 0.38, 20), skinMat);
+    rCalf.position.set(0, -0.19, 0);
+    rCalf.castShadow = true;
+    rightKnee.add(rCalf);
+
+    const rightFoot = new THREE.Group();
+    rightFoot.position.set(0, -0.38, 0);
+    rightKnee.add(rightFoot);
+    const rAnkleJoint = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 16), skinMat);
+    rightFoot.add(rAnkleJoint);
+    const rSneaker = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), whiteMat);
+    rSneaker.scale.set(0.13, 0.09, 0.24);
+    rSneaker.position.set(0, -0.04, 0.06);
+    rSneaker.castShadow = true;
+    rightFoot.add(rSneaker);
+    const rSole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.26), violetMat);
+    rSole.position.set(0, -0.09, 0.06);
+    rightFoot.add(rSole);
+
+    const animState = {
+      rootPos: new THREE.Vector3(0, 0, 0),
+      rootRot: new THREE.Euler(0, 0, 0),
+      hipsPos: new THREE.Vector3(0, 1.05, 0),
+      torsoRot: new THREE.Euler(0, 0, 0),
+      headRot: new THREE.Euler(0, 0, 0),
+      leftArmRot: new THREE.Euler(0, 0, 0),
+      rightArmRot: new THREE.Euler(0, 0, 0),
+      leftElbowRot: new THREE.Euler(0, 0, 0),
+      rightElbowRot: new THREE.Euler(0, 0, 0),
+      leftHipRot: new THREE.Euler(0, 0, 0),
+      rightHipRot: new THREE.Euler(0, 0, 0),
+      leftKneeRot: new THREE.Euler(0, 0, 0),
+      rightKneeRot: new THREE.Euler(0, 0, 0),
+      leftFootRot: new THREE.Euler(0, 0, 0),
+      rightFootRot: new THREE.Euler(0, 0, 0),
+    };
+
+    function resetTransforms() {
+      charRoot.position.set(0, 0, 0);
+      charRoot.rotation.set(0, 0, 0);
+      hips.position.set(0, 1.05, 0);
+      torso.rotation.set(0, 0, 0);
+      head.rotation.set(0, 0, 0);
+      leftShoulder.rotation.set(0, 0, 0);
+      rightShoulder.rotation.set(0, 0, 0);
+      leftElbow.rotation.set(0, 0, 0);
+      rightElbow.rotation.set(0, 0, 0);
+      leftHip.rotation.set(0, 0, 0);
+      rightHip.rotation.set(0, 0, 0);
+      leftKnee.rotation.set(0, 0, 0);
+      rightKnee.rotation.set(0, 0, 0);
+      leftFoot.rotation.set(0, 0, 0);
+      rightFoot.rotation.set(0, 0, 0);
+
+      animState.rootPos.set(0, 0, 0);
+      animState.rootRot.set(0, 0, 0);
+      animState.hipsPos.set(0, 1.05, 0);
+      animState.torsoRot.set(0, 0, 0);
+      animState.headRot.set(0, 0, 0);
+      animState.leftArmRot.set(0, 0, 0);
+      animState.rightArmRot.set(0, 0, 0);
+      animState.leftElbowRot.set(0, 0, 0);
+      animState.rightElbowRot.set(0, 0, 0);
+      animState.leftHipRot.set(0, 0, 0);
+      animState.rightHipRot.set(0, 0, 0);
+      animState.leftKneeRot.set(0, 0, 0);
+      animState.rightKneeRot.set(0, 0, 0);
+      animState.leftFootRot.set(0, 0, 0);
+      animState.rightFootRot.set(0, 0, 0);
+    }
+
+    function applyPose(norm, t) {
+      let targetRootX = 0, targetRootY = 0, targetRootZ = 0;
+      let targetRootRotX = 0, targetRootRotY = 0, targetRootRotZ = 0;
+      let targetHipsY = 1.05;
+      let targetTorsoRotX = 0;
+      let targetHeadRotX = 0;
+      let targetLArmX = 0, targetLArmZ = -0.15;
+      let targetRArmX = 0, targetRArmZ = 0.15;
+      let targetLElbowX = 0, targetLElbowZ = 0;
+      let targetRElbowX = 0, targetRElbowZ = 0;
+      let targetLHipX = 0, targetLHipZ = 0;
+      let targetRHipX = 0, targetRHipZ = 0;
+      let targetLKneeX = 0, targetRKneeX = 0;
+      let targetLFootX = 0, targetRFootX = 0;
+      let targetLFootY = 0, targetRFootY = 0;
+
+      // 1. JUMPING JACKS (Fluid jumping jack cycle, arms overhead, legs spread, landing hop)
+      if (norm.includes('jumpingjack')) {
+        const pace = t * 2.8;
+        const cycle = (1 - Math.cos(pace)) / 2;
+        const hop = Math.abs(Math.sin(pace));
+        targetRootY = hop * 0.20;
+        targetLHipZ = -0.45 * cycle;
+        targetRHipZ = 0.45 * cycle;
+        targetLKneeX = 0.12 * cycle + 0.08 * (1 - cycle);
+        targetRKneeX = 0.12 * cycle + 0.08 * (1 - cycle);
+        targetLArmZ = -0.08 - cycle * 2.72;
+        targetRArmZ = 0.08 + cycle * 2.72;
+        targetLElbowZ = -0.10 * cycle;
+        targetRElbowZ = 0.10 * cycle;
+        targetTorsoRotX = 0.02 * cycle;
+      }
+      // 2. BODYWEIGHT SQUATS / SQUATS (ZERO DUMBBELLS, stable shoulder-width stance, toes slightly out, heels grounded)
+      else if (norm === 'squats' || norm.includes('bodyweightsquat') || norm === 'squat') {
+        const cycle = (1 - Math.cos(t * 2.0)) / 2;
+        // Shoulder-width stable stance with toes pointing slightly outward (8 deg)
+        targetLHipZ = -0.10;
+        targetRHipZ = 0.10;
+        targetLFootY = 0.14;
+        targetRFootY = -0.14;
+        // Controlled natural squat depth with heels grounded on floor
+        targetRootY = -0.38 * cycle;
+        targetRootZ = -0.18 * cycle;
+        targetTorsoRotX = 0.30 * cycle;
+        targetLArmX = -1.40 * cycle;
+        targetRArmX = -1.40 * cycle;
+        targetLHipX = -1.18 * cycle;
+        targetRHipX = -1.18 * cycle;
+        targetLKneeX = 1.32 * cycle;
+        targetRKneeX = 1.32 * cycle;
+        // Exact ankle dorsiflexion keeping soles completely flat and grounded on floor (no twisting, sliding or floor penetration)
+        targetLFootX = -0.14 * cycle;
+        targetRFootX = -0.14 * cycle;
+      }
+      // 3. JUMP SQUATS (Deep squat explosion into high vertical jump with overhead reach)
+      else if (norm.includes('jumpsquat')) {
+        const raw = (t * 2.2) % (Math.PI * 2);
+        const isSquat = raw < Math.PI;
+        if (isSquat) {
+          const squatDepth = (1 - Math.cos(raw)) / 2;
+          targetRootY = -0.42 * squatDepth;
+          targetRootZ = -0.2 * squatDepth;
+          targetTorsoRotX = 0.35 * squatDepth;
+          targetLArmX = -0.8 * squatDepth;
+          targetRArmX = -0.8 * squatDepth;
+          targetLHipX = -1.25 * squatDepth;
+          targetRHipX = -1.25 * squatDepth;
+          targetLKneeX = 1.35 * squatDepth;
+          targetRKneeX = 1.35 * squatDepth;
+        } else {
+          const airProgress = Math.sin(raw - Math.PI);
+          targetRootY = airProgress * 0.45;
+          targetLArmX = -2.6;
+          targetRArmX = -2.6;
+          targetLHipX = 0.1;
+          targetRHipX = 0.1;
+          targetLKneeX = 0.05;
+          targetRKneeX = 0.05;
+          targetLFootX = 0.35;
+          targetRFootX = 0.35;
+        }
+      }
+      // 1. WALL PUSH-UPS (Anchored feet, rigid body plank, safe head clearance, elbows bend backward-outward 35-40 deg)
+      else if (norm.includes('wallpushup')) {
+        const cycle = (1 - Math.cos(t * 1.8)) / 2;
+        // Keep character positioned safely back from wall so head has ample clearance (~28cm safe clearance)
+        targetRootZ = -0.28 + 0.12 * cycle;
+        targetRootY = 0;
+        targetRootRotX = 0.22 + 0.06 * cycle; // Rigid body plank from head to heels
+        // Hands placed at shoulder height against the wall
+        // Upper arms flare naturally 30-45 deg away from torso, rotating back as chest approaches wall
+        targetLArmX = -1.48 + 0.55 * cycle;
+        targetRArmX = -1.48 + 0.55 * cycle;
+        targetLArmZ = -0.15 - 0.45 * cycle; // 35-40 deg outward
+        targetRArmZ = 0.15 + 0.45 * cycle;
+        // Elbows bend backward naturally without awkward inward folding
+        targetLElbowX = -1.15 * cycle;
+        targetRElbowX = -1.15 * cycle;
+        targetLElbowZ = 0.08 * cycle;
+        targetRElbowZ = -0.08 * cycle;
+        // Feet stay firmly planted on floor with heels/soles anchored
+        targetLFootX = -0.22 - 0.06 * cycle;
+        targetRFootX = -0.22 - 0.06 * cycle;
+        targetTorsoRotX = 0;
+        targetHeadRotX = -0.06; // Neutral neck, face stays safely away from wall
+      }
+      // 5. LUNGES (Alternating forward lunges with upright torso)
+      else if (norm === 'lunges' || norm === 'lunge') {
+        const phase = (t * 1.8) % (Math.PI * 4);
+        const isRightLead = phase < Math.PI * 2;
+        const sub = (1 - Math.cos(phase % (Math.PI * 2))) / 2;
+        targetRootY = -0.32 * sub;
+        targetTorsoRotX = 0.05;
+        targetLArmX = -0.4 * sub;
+        targetRArmX = -0.4 * sub;
+        if (isRightLead) {
+          targetRHipX = -1.15 * sub;
+          targetRKneeX = 1.25 * sub;
+          targetLHipX = 0.55 * sub;
+          targetLKneeX = 1.25 * sub;
+        } else {
+          targetLHipX = -1.15 * sub;
+          targetLKneeX = 1.25 * sub;
+          targetRHipX = 0.55 * sub;
+          targetRKneeX = 1.25 * sub;
+        }
+      }
+      // 6. REVERSE LUNGES (Stepping backward naturally, front foot stable and grounded, no floor sinking)
+      else if (norm.includes('reverselunge')) {
+        const phase = (t * 1.8) % (Math.PI * 4);
+        const isRightLead = phase < Math.PI * 2;
+        const sub = (1 - Math.cos(phase % (Math.PI * 2))) / 2;
+        targetRootY = -0.24 * sub;
+        targetRootZ = -0.10 * sub;
+        targetTorsoRotX = 0.05; // Balanced upright torso
+        targetLArmX = -0.45 * sub;
+        targetRArmX = -0.45 * sub;
+        if (isRightLead) {
+          // Front leg (Left): planted flat on floor, knee aligned with foot
+          targetLHipX = -0.75 * sub;
+          targetLKneeX = 0.90 * sub;
+          targetLFootX = -0.15 * sub; // Ankle dorsiflexion keeps front sole flat on floor
+          // Rear leg (Right): moves backward naturally, toes in proper floor contact
+          targetRHipX = 0.55 * sub;
+          targetRKneeX = 1.05 * sub;
+          targetRFootX = -0.50 * sub; // Toes supporting body, preventing floor sinking
+        } else {
+          // Front leg (Right): planted flat on floor
+          targetRHipX = -0.75 * sub;
+          targetRKneeX = 0.90 * sub;
+          targetRFootX = -0.15 * sub;
+          // Rear leg (Left): moves backward naturally
+          targetLHipX = 0.55 * sub;
+          targetLKneeX = 1.05 * sub;
+          targetLFootX = -0.50 * sub;
+        }
+      }
+      // 6. JUMPING LUNGES (Controlled split lunge, vertical jump with in-air scissor switch, soft landing, no sinking)
+      else if (norm.includes('jumpinglunge')) {
+        const cycleDuration = 6.0;
+        const phase = t % cycleDuration;
+        if (phase < 1.6) {
+          // Lunge stance 1: Right leg forward, left leg back, upright torso, feet in proper contact
+          const dip = 0.06 * (1 - Math.cos((phase / 1.6) * Math.PI));
+          targetRootY = -0.24 - dip;
+          targetTorsoRotX = 0.05;
+          // Front leg (Right): knee at 90 deg, sole flat on floor
+          targetRHipX = -0.85;
+          targetRKneeX = 1.05;
+          targetRFootX = -0.20;
+          // Rear leg (Left): knee safely above floor, toes supporting on floor
+          targetLHipX = 0.60;
+          targetLKneeX = 1.10;
+          targetLFootX = -0.50;
+          targetLArmX = -0.75;
+          targetRArmX = 0.55;
+          targetLElbowX = -0.85;
+          targetRElbowX = -0.85;
+        } else if (phase < 2.8) {
+          // Jump & Switch 1: Vertical jump, clear in-air scissor switch
+          const p = (phase - 1.6) / 1.2;
+          const air = Math.sin(p * Math.PI);
+          targetRootY = -0.24 + 0.48 * air; // Clean vertical leap
+          // Scissor leg switch
+          targetRHipX = -0.85 + 1.45 * p;
+          targetLHipX = 0.60 - 1.45 * p;
+          targetRKneeX = 1.05 - 0.50 * air;
+          targetLKneeX = 1.10 - 0.50 * air;
+          targetRFootX = -0.20 + (-0.50 - (-0.20)) * p;
+          targetLFootX = -0.50 + (-0.20 - (-0.50)) * p;
+          targetLArmX = -0.75 + 1.30 * p;
+          targetRArmX = 0.55 - 1.30 * p;
+          targetTorsoRotX = 0.05;
+        } else if (phase < 4.4) {
+          // Lunge stance 2: Left leg forward, right leg back, controlled depth, no floor penetration
+          const dip = 0.06 * (1 - Math.cos(((phase - 2.8) / 1.6) * Math.PI));
+          targetRootY = -0.24 - dip;
+          targetTorsoRotX = 0.05;
+          targetLHipX = -0.85;
+          targetLKneeX = 1.05;
+          targetLFootX = -0.20;
+          targetRHipX = 0.60;
+          targetRKneeX = 1.10;
+          targetRFootX = -0.50;
+          targetRArmX = -0.75;
+          targetLArmX = 0.55;
+          targetLElbowX = -0.85;
+          targetRElbowX = -0.85;
+        } else {
+          // Jump & Switch 2: Vertical jump, legs switch back to Right lead
+          const p = (phase - 4.4) / 1.6;
+          const air = Math.sin(p * Math.PI);
+          targetRootY = -0.24 + 0.48 * air;
+          targetLHipX = -0.85 + 1.45 * p;
+          targetRHipX = 0.60 - 1.45 * p;
+          targetLKneeX = 1.05 - 0.50 * air;
+          targetRKneeX = 1.10 - 0.50 * air;
+          targetLFootX = -0.20 + (-0.50 - (-0.20)) * p;
+          targetRFootX = -0.50 + (-0.20 - (-0.50)) * p;
+          targetRArmX = -0.75 + 1.30 * p;
+          targetLArmX = 0.55 - 1.30 * p;
+          targetTorsoRotX = 0.05;
+        }
+      }
+      // 2. HIGH KNEES (Alternating knee drives to hip height, opposite arm drive, brisk cadence)
+      else if (norm.includes('highknee')) {
+        const cadence = 5.2; // Brisk, steady cadence
+        const pace = (t * cadence) % (Math.PI * 2);
+        const isRight = pace < Math.PI;
+        const sub = isRight ? pace : pace - Math.PI;
+        // Smooth sine drive from 0 -> 1 -> 0
+        const drive = Math.sin(sub);
+        // Small vertical bounce in place on balls of feet (stays in position)
+        targetRootY = 0.10 * Math.sin(sub);
+        targetRootX = 0;
+        targetRootZ = 0;
+        targetTorsoRotX = 0.06; // Athletic upright forward lean
+        targetHeadRotX = 0;
+
+        if (isRight) {
+          // Right knee drives UP to hip height (thigh horizontal at -1.65 rad)
+          targetRHipX = -1.65 * drive;
+          targetRKneeX = 1.65 * drive; // Lower leg hangs vertically down at 90 deg bend
+          targetRFootX = -0.20 * drive;
+          // Left leg is support leg on floor with slight spring
+          targetLHipX = 0.05;
+          targetLKneeX = 0.08 * (1 - drive);
+          targetLFootX = 0.15 * drive;
+
+          // Coordinated opposite-arm running drive: Left arm drives up forward, Right arm drives back
+          targetLArmX = -1.55 * drive;
+          targetLElbowX = -1.55 * drive; // Left elbow bent at 90 deg
+          targetLArmZ = -0.15;
+          targetRArmX = 0.70 * drive;
+          targetRElbowX = -0.90 * drive; // Right elbow bent
+          targetRArmZ = 0.15;
+        } else {
+          // Left knee drives UP to hip height (thigh horizontal)
+          targetLHipX = -1.65 * drive;
+          targetLKneeX = 1.65 * drive;
+          targetLFootX = -0.20 * drive;
+          // Right leg is support leg
+          targetRHipX = 0.05;
+          targetRKneeX = 0.08 * (1 - drive);
+          targetRFootX = 0.15 * drive;
+
+          // Opposite-arm: Right arm drives up forward, Left arm drives back
+          targetRArmX = -1.55 * drive;
+          targetRElbowX = -1.55 * drive; // Right elbow bent 90 deg
+          targetRArmZ = 0.15;
+          targetLArmX = 0.70 * drive;
+          targetLElbowX = -0.90 * drive; // Left elbow bent
+          targetLArmZ = -0.15;
+        }
+      }
+      // 9. PLANK (Forearms flat on mat beneath shoulders, straight line head to heels)
+      else if (norm === 'plank' || norm.includes('plank')) {
+        targetRootRotX = 1.48;
+        targetRootY = 0.28;
+        targetRootZ = -0.70;
+        targetTorsoRotX = 0.008 * Math.sin(t * 1.5);
+        targetLArmX = -1.52;
+        targetRArmX = -1.52;
+        targetLArmZ = -0.04;
+        targetRArmZ = 0.04;
+        targetLElbowX = -1.54;
+        targetRElbowX = -1.54;
+        targetLHipX = -0.05;
+        targetRHipX = -0.05;
+        targetLHipZ = -0.05;
+        targetRHipZ = 0.05;
+        targetLKneeX = 0;
+        targetRKneeX = 0;
+        targetLFootX = -0.55;
+        targetRFootX = -0.55;
+        targetHeadRotX = 0;
+      }
+      // 3. PUSH-UPS (Prone face-down, rigid one-unit body, toes grounded supporting body, legs straight)
+      else if (norm === 'pushups' || norm.includes('pushup')) {
+        const cycle = (1 - Math.cos(t * 2.0)) / 2;
+        // Body aligned as one rigid unit from head to heels, pivoting smoothly on toes
+        targetRootRotX = 1.40 + 0.12 * cycle; // Angle tilts naturally as chest lowers
+        targetRootY = 0.26 - 0.10 * cycle; // Chest lowers toward mat, toes stay grounded
+        targetRootZ = -0.35 + 0.03 * cycle;
+        // Upper arm moves backward toward torso at ~45 deg as chest lowers
+        targetLArmX = -1.48 + 0.65 * cycle;
+        targetRArmX = -1.48 + 0.65 * cycle;
+        targetLArmZ = -0.20 - 0.35 * cycle;
+        targetRArmZ = 0.20 + 0.35 * cycle;
+        // Controlled 90 deg elbow bend while lowering, extending on return
+        targetLElbowX = -1.40 * cycle;
+        targetRElbowX = -1.40 * cycle;
+        targetLElbowZ = -0.55 * cycle;
+        targetRElbowZ = 0.55 * cycle;
+        // Legs stay extended and aligned with torso - zero bending, twisting, or floating
+        targetLHipX = 0;
+        targetRHipX = 0;
+        targetLKneeX = 0;
+        targetRKneeX = 0;
+        // Toes curled under supporting the body on the mat
+        targetLFootX = -0.55;
+        targetRFootX = -0.55;
+        targetTorsoRotX = 0; // Rigid core, no hip sagging or rising
+        targetHeadRotX = 0; // Neutral head and neck
+      }
+      // 4. MOUNTAIN CLIMBERS (Stable high plank, supporting toes on floor, smooth knee drives beneath chest)
+      else if (norm.includes('mountainclimber')) {
+        const pace = (t * 3.5) % (Math.PI * 2); // Moderate, steady pace
+        const isRight = pace < Math.PI;
+        const sub = isRight ? pace : pace - Math.PI;
+        const drive = Math.sin(sub);
+        // High plank posture with toes resting on mat
+        targetRootRotX = 1.42;
+        targetRootY = 0.28;
+        targetRootZ = -0.35;
+        // Hands remain firmly planted beneath shoulders throughout
+        targetLArmX = -1.50;
+        targetRArmX = -1.50;
+        targetLArmZ = -0.06;
+        targetRArmZ = 0.06;
+        targetLElbowX = 0;
+        targetRElbowX = 0;
+        targetTorsoRotX = 0; // Stable torso, no twisting or bouncing
+        targetHeadRotX = 0;
+
+        if (isRight) {
+          // Right knee drives smoothly toward chest, foot lifted naturally above floor
+          targetRHipX = -1.15 * drive;
+          targetRKneeX = 1.35 * drive;
+          targetRFootX = -0.55 + 0.35 * drive;
+          // Supporting left leg remains extended with toes in firm contact with floor
+          targetLHipX = 0;
+          targetLKneeX = 0;
+          targetLFootX = -0.55;
+        } else {
+          // Left knee drives smoothly toward chest
+          targetLHipX = -1.15 * drive;
+          targetLKneeX = 1.35 * drive;
+          targetLFootX = -0.55 + 0.35 * drive;
+          // Supporting right leg remains extended with toes in firm contact with floor
+          targetRHipX = 0;
+          targetRKneeX = 0;
+          targetRFootX = -0.55;
+        }
+      }
+      // 5. BURPEES (Complete sequence from standing upright, stable foot contact in squat & plank)
+      else if (norm.includes('burpee')) {
+        const repDuration = 5.6;
+        const phase = t % repDuration;
+        if (phase < 0.8) {
+          // Step 1: Standing upright with both feet firmly on floor and arms naturally at sides
+          targetRootY = 0;
+          targetRootRotX = 0;
+          targetTorsoRotX = 0;
+          targetHeadRotX = 0;
+          targetLArmX = 0;
+          targetLArmZ = -0.15;
+          targetRArmX = 0;
+          targetRArmZ = 0.15;
+          targetLElbowX = 0;
+          targetRElbowX = 0;
+          targetLHipX = 0;
+          targetRHipX = 0;
+          targetLKneeX = 0;
+          targetRKneeX = 0;
+          targetLFootX = 0;
+          targetRFootX = 0;
+        } else if (phase < 1.8) {
+          // Step 2: Bend into squat and place both hands on floor, feet maintain floor contact
+          const p = (phase - 0.8) / 1.0;
+          targetRootY = -0.38 * p;
+          targetTorsoRotX = 0.65 * p;
+          targetLHipX = -1.20 * p;
+          targetRHipX = -1.20 * p;
+          targetLKneeX = 1.35 * p;
+          targetRKneeX = 1.35 * p;
+          targetLFootX = -0.15 * p; // Grounded feet during squat
+          targetRFootX = -0.15 * p;
+          targetLArmX = -0.95 * p;
+          targetRArmX = -0.95 * p;
+          targetRootRotX = 0;
+        } else if (phase < 3.0) {
+          // Step 3: Move feet back into high-plank position, toes grounded on mat
+          const p = Math.min(1.0, (phase - 1.8) / 0.5);
+          targetRootRotX = 1.42 * p;
+          targetRootY = -0.38 + (0.28 - (-0.38)) * p;
+          targetRootZ = -0.35 * p;
+          targetLArmX = -0.95 + (-1.50 - (-0.95)) * p;
+          targetRArmX = -0.95 + (-1.50 - (-0.95)) * p;
+          targetLHipX = -1.20 * (1 - p);
+          targetRHipX = -1.20 * (1 - p);
+          targetLKneeX = 1.35 * (1 - p);
+          targetRKneeX = 1.35 * (1 - p);
+          targetLFootX = -0.15 * (1 - p) + (-0.55) * p; // Toes grounded in plank
+          targetRFootX = -0.15 * (1 - p) + (-0.55) * p;
+          targetTorsoRotX = 0.65 * (1 - p);
+        } else if (phase < 4.0) {
+          // Step 4: Return feet forward into squat position, complete natural landing on floor
+          const p = Math.min(1.0, (phase - 3.0) / 0.5);
+          targetRootRotX = 1.42 * (1 - p);
+          targetRootY = 0.28 + (-0.38 - 0.28) * p;
+          targetRootZ = -0.35 * (1 - p);
+          targetLArmX = -1.50 + (-0.95 - (-1.50)) * p;
+          targetRArmX = -1.50 + (-0.95 - (-1.50)) * p;
+          targetLHipX = -1.20 * p;
+          targetRHipX = -1.20 * p;
+          targetLKneeX = 1.35 * p;
+          targetRKneeX = 1.35 * p;
+          targetLFootX = -0.55 * (1 - p) + (-0.15) * p; // Feet landed on floor
+          targetRFootX = -0.55 * (1 - p) + (-0.15) * p;
+          targetTorsoRotX = 0.65 * p;
+        } else if (phase < 5.0) {
+          // Step 5: Stand upright and raise both arms overhead to finish repetition
+          const p = (phase - 4.0) / 1.0;
+          const upHop = Math.sin(p * Math.PI);
+          targetRootY = -0.38 * (1 - p) + 0.22 * upHop;
+          targetTorsoRotX = 0.65 * (1 - p);
+          targetLHipX = -1.20 * (1 - p);
+          targetRHipX = -1.20 * (1 - p);
+          targetLKneeX = 1.35 * (1 - p);
+          targetRKneeX = 1.35 * (1 - p);
+          targetLArmX = -0.95 * (1 - p);
+          targetRArmX = -0.95 * (1 - p);
+          targetLArmZ = -0.15 - 2.55 * p;
+          targetRArmZ = 0.15 + 2.55 * p;
+          targetLFootX = 0.20 * upHop;
+          targetRFootX = 0.20 * upHop;
+          targetRootRotX = 0;
+        } else {
+          // Smooth return to standing start position
+          const p = (phase - 5.0) / 0.6;
+          targetRootY = 0;
+          targetTorsoRotX = 0;
+          targetLHipX = 0;
+          targetRHipX = 0;
+          targetLKneeX = 0;
+          targetRKneeX = 0;
+          targetLArmX = 0;
+          targetRArmX = 0;
+          targetLArmZ = -0.15 - 2.55 * (1 - p);
+          targetRArmZ = 0.15 + 2.55 * (1 - p);
+          targetLFootX = 0;
+          targetRFootX = 0;
+          targetRootRotX = 0;
+        }
+      }
+
+      const lr = (norm.includes('highknee') || norm.includes('mountainclimber') || norm.includes('pushup') || norm.includes('wallpushup')) ? 0.60 : 0.35;
+      animState.rootPos.x = THREE.MathUtils.lerp(animState.rootPos.x, targetRootX, lr);
+      animState.rootPos.y = THREE.MathUtils.lerp(animState.rootPos.y, targetRootY, lr);
+      animState.rootPos.z = THREE.MathUtils.lerp(animState.rootPos.z, targetRootZ, lr);
+      charRoot.position.set(animState.rootPos.x, animState.rootPos.y, animState.rootPos.z);
+
+      animState.rootRot.x = THREE.MathUtils.lerp(animState.rootRot.x, targetRootRotX, lr);
+      animState.rootRot.y = THREE.MathUtils.lerp(animState.rootRot.y, targetRootRotY, lr);
+      animState.rootRot.z = THREE.MathUtils.lerp(animState.rootRot.z, targetRootRotZ, lr);
+      charRoot.rotation.set(animState.rootRot.x, animState.rootRot.y, animState.rootRot.z);
+
+      animState.hipsPos.y = THREE.MathUtils.lerp(animState.hipsPos.y, targetHipsY, lr);
+      hips.position.y = animState.hipsPos.y;
+
+      animState.torsoRot.x = THREE.MathUtils.lerp(animState.torsoRot.x, targetTorsoRotX, lr);
+      torso.rotation.set(animState.torsoRot.x, 0, 0);
+
+      animState.headRot.x = THREE.MathUtils.lerp(animState.headRot.x, targetHeadRotX, lr);
+      head.rotation.x = animState.headRot.x;
+
+      animState.leftArmRot.x = THREE.MathUtils.lerp(animState.leftArmRot.x, targetLArmX, lr);
+      animState.leftArmRot.z = THREE.MathUtils.lerp(animState.leftArmRot.z, targetLArmZ, lr);
+      leftShoulder.rotation.set(animState.leftArmRot.x, 0, animState.leftArmRot.z);
+
+      animState.rightArmRot.x = THREE.MathUtils.lerp(animState.rightArmRot.x, targetRArmX, lr);
+      animState.rightArmRot.z = THREE.MathUtils.lerp(animState.rightArmRot.z, targetRArmZ, lr);
+      rightShoulder.rotation.set(animState.rightArmRot.x, 0, animState.rightArmRot.z);
+
+      animState.leftElbowRot.x = THREE.MathUtils.lerp(animState.leftElbowRot.x, targetLElbowX, lr);
+      animState.leftElbowRot.z = THREE.MathUtils.lerp(animState.leftElbowRot.z, targetLElbowZ, lr);
+      leftElbow.rotation.set(animState.leftElbowRot.x, 0, animState.leftElbowRot.z);
+
+      animState.rightElbowRot.x = THREE.MathUtils.lerp(animState.rightElbowRot.x, targetRElbowX, lr);
+      animState.rightElbowRot.z = THREE.MathUtils.lerp(animState.rightElbowRot.z, targetRElbowZ, lr);
+      rightElbow.rotation.set(animState.rightElbowRot.x, 0, animState.rightElbowRot.z);
+
+      animState.leftHipRot.x = THREE.MathUtils.lerp(animState.leftHipRot.x, targetLHipX, lr);
+      animState.leftHipRot.z = THREE.MathUtils.lerp(animState.leftHipRot.z, targetLHipZ, lr);
+      leftHip.rotation.set(animState.leftHipRot.x, 0, animState.leftHipRot.z);
+
+      animState.rightHipRot.x = THREE.MathUtils.lerp(animState.rightHipRot.x, targetRHipX, lr);
+      animState.rightHipRot.z = THREE.MathUtils.lerp(animState.rightHipRot.z, targetRHipZ, lr);
+      rightHip.rotation.set(animState.rightHipRot.x, 0, animState.rightHipRot.z);
+
+      animState.leftKneeRot.x = THREE.MathUtils.lerp(animState.leftKneeRot.x, targetLKneeX, lr);
+      leftKnee.rotation.x = animState.leftKneeRot.x;
+      animState.rightKneeRot.x = THREE.MathUtils.lerp(animState.rightKneeRot.x, targetRKneeX, lr);
+      rightKnee.rotation.x = animState.rightKneeRot.x;
+
+      animState.leftFootRot.x = THREE.MathUtils.lerp(animState.leftFootRot.x, targetLFootX, lr);
+      animState.leftFootRot.y = THREE.MathUtils.lerp(animState.leftFootRot.y || 0, targetLFootY, lr);
+      leftFoot.rotation.set(animState.leftFootRot.x, animState.leftFootRot.y, 0);
+
+      animState.rightFootRot.x = THREE.MathUtils.lerp(animState.rightFootRot.x, targetRFootX, lr);
+      animState.rightFootRot.y = THREE.MathUtils.lerp(animState.rightFootRot.y || 0, targetRFootY, lr);
+      rightFoot.rotation.set(animState.rightFootRot.x, animState.rightFootRot.y, 0);
+    }
+
+    async function recordExercise(ex) {
+      console.log('[RECORDING_START]', ex.name, ex.id);
+      statusEl.textContent = 'Generating: ' + ex.name + ' (' + ex.id + ')...';
+      resetTransforms();
+
+      wallGroup.visible = Boolean(ex.hasWall);
+      matGroup.visible = Boolean(ex.isFloor);
+
+      camera.position.set(...ex.camera.pos);
+      camera.lookAt(...ex.camera.target);
+
+      const norm = ex.name.toLowerCase().replace(/[^a-z]/g, '');
+
+      // Warm-up equilibrium at t = 0 to establish true starting pose
+      resetTransforms();
+      for (let w = 0; w < 20; w++) {
+        applyPose(norm, 0);
+        renderer.render(scene, camera);
+      }
+
+      const canvas = renderer.domElement;
+      const stream = canvas.captureStream(30);
+
+      // Dual genuine MediaRecorders: genuine MP4 (AVC1) and genuine WebM (VP9)
+      const recMp4 = new MediaRecorder(stream, {
+        mimeType: 'video/mp4;codecs=avc1',
+        videoBitsPerSecond: 2500000
+      });
+      const chunksMp4 = [];
+      recMp4.ondataavailable = e => { if (e.data && e.data.size > 0) chunksMp4.push(e.data); };
+
+      const webmMime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      const recWebm = new MediaRecorder(stream, {
+        mimeType: webmMime,
+        videoBitsPerSecond: 2500000
+      });
+      const chunksWebm = [];
+      recWebm.ondataavailable = e => { if (e.data && e.data.size > 0) chunksWebm.push(e.data); };
+
+      const recordPromise = Promise.all([
+        new Promise(resolve => {
+          recMp4.onstop = () => {
+            const blob = new Blob(chunksMp4, { type: 'video/mp4' });
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              const base64 = reader.result.split(',')[1];
+              await fetch('/save-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: ex.id + '.mp4', base64 })
+              });
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+          };
+        }),
+        new Promise(resolve => {
+          recWebm.onstop = () => {
+            const blob = new Blob(chunksWebm, { type: 'video/webm' });
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              const base64 = reader.result.split(',')[1];
+              await fetch('/save-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: ex.id + '.webm', base64 })
+              });
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+          };
+        })
+      ]);
+
+      recMp4.start();
+      recWebm.start();
+
+      const fps = 30;
+      const totalFrames = Math.round(ex.duration * fps);
+      const snapPoints = [
+        Math.round(totalFrames * 0.12),
+        Math.round(totalFrames * 0.25),
+        Math.round(totalFrames * 0.37),
+        Math.round(totalFrames * 0.50),
+        Math.round(totalFrames * 0.62),
+        Math.round(totalFrames * 0.75)
+      ];
+
+      for (let f = 0; f < totalFrames; f++) {
+        const simTime = f / fps;
+        applyPose(norm, simTime);
+        renderer.render(scene, camera);
+
+        if (snapPoints.includes(f)) {
+          const pct = Math.round((f / totalFrames) * 100);
+          const dataUrl = canvas.toDataURL('image/png');
+          const b64 = dataUrl.split(',')[1];
+          await fetch('/save-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: ex.id + '_' + pct + '.png', base64: b64 })
+          });
+        }
+
+        await new Promise(r => setTimeout(r, 1000 / fps));
+      }
+
+      recMp4.stop();
+      recWebm.stop();
+
+      await recordPromise;
+      console.log('[RECORDING_COMPLETE]', ex.name);
+    }
+
+    async function runAll() {
+      console.log('[START_ALL_EXERCISES]');
+      const res = await fetch('/exercises.json');
+      const list = await res.json();
+      for (const ex of list) {
+        await recordExercise(ex);
+      }
+      statusEl.textContent = 'All 13 exercises generated and recorded successfully!';
+      console.log('[ALL_DONE]');
+      window.allDone = true;
+    }
+
+    window.applyPose = applyPose;
+    window.renderer = renderer;
+    window.scene = scene;
+    window.camera = camera;
+    window.wallGroup = wallGroup;
+    window.matGroup = matGroup;
+    window.resetTransforms = resetTransforms;
+    window.runAll = runAll;
+    window.allDone = false;
+  </script>
+</body>
+</html>

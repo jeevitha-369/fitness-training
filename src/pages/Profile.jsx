@@ -5,15 +5,20 @@ export default function Profile({
   fitnessLevel,
   fitnessGoal,
   dailyTargetMinutes = 25,
+  dietaryPreference = "veg",
   workoutHistory = [],
   completedExercises = [],
+  currentUser = null,
   onSaveProfile,
   onClearAllData,
+  onLogout,
+  onNavigate,
 }) {
   const [name, setName] = useState(profileName || "");
   const [level, setLevel] = useState(fitnessLevel || "Beginner");
   const [goal, setGoal] = useState(fitnessGoal || "Stay Active & Build Strength");
   const [targetMin, setTargetMin] = useState(dailyTargetMinutes);
+  const [dietPref, setDietPref] = useState(dietaryPreference || "veg");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSubmit = (e) => {
@@ -23,6 +28,7 @@ export default function Profile({
       fitnessLevel: level,
       fitnessGoal: goal,
       dailyTargetMinutes: Number(targetMin) || 25,
+      dietaryPreference: dietPref,
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3500);
@@ -46,7 +52,7 @@ export default function Profile({
           <span className="page-overline">USER ACCOUNT &amp; PREFERENCES</span>
           <h1 className="page-title">Personal Athlete Profile</h1>
           <p className="page-subtitle">
-            Configure your training preferences, primary skill level, and fitness targets. All settings are persistently preserved in localStorage.
+            Manage your fitness preferences, level, and targets.
           </p>
         </div>
       </div>
@@ -55,14 +61,14 @@ export default function Profile({
         {/* Profile Form Card */}
         <div className="profile-card">
           <div className="card-header-row">
-            <h2 className="card-title">Profile Settings</h2>
+            <h2 className="card-title">Profile Settings &amp; Preferences</h2>
             <span className="badge-pill-cyan">Local Persistence Active</span>
           </div>
 
           {saveSuccess && (
             <div className="alert-success-banner">
               <span className="alert-icon">✓</span>
-              <span>Profile settings saved successfully and persisted in localStorage!</span>
+              <span>Profile and dietary preferences saved successfully!</span>
             </div>
           )}
 
@@ -77,7 +83,6 @@ export default function Profile({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-              <span className="input-hint">Displayed across your dashboard and workout certificates.</span>
             </div>
 
             <div className="form-group">
@@ -92,7 +97,19 @@ export default function Profile({
                 <option value="Intermediate">Intermediate (Core Strength &amp; Calisthenics)</option>
                 <option value="Advanced">Advanced (High-Intensity &amp; Plyometrics)</option>
               </select>
-              <span className="input-hint">Sets your default suggested program. Does not erase your progress in other levels.</span>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="diet-pref-select">Dietary Nutrition Preference</label>
+              <select
+                id="diet-pref-select"
+                className="form-select"
+                value={dietPref}
+                onChange={(e) => setDietPref(e.target.value)}
+              >
+                <option value="veg">🥬 Vegetarian (Lacto-Vegetarian Indian Meals)</option>
+                <option value="nonveg">🍗 Non-Vegetarian (Eggs, Chicken, Fish &amp; Whole Foods)</option>
+              </select>
             </div>
 
             <div className="form-group">
@@ -135,8 +152,9 @@ export default function Profile({
           </form>
         </div>
 
-        {/* Athlete Overview Card */}
+        {/* Athlete Overview & Demo Session Card */}
         <div className="profile-sidebar">
+          {/* Athlete Overview */}
           <div className="profile-card athlete-card">
             <div className="avatar-large">
               {(name || "JD").slice(0, 2).toUpperCase()}
@@ -145,6 +163,10 @@ export default function Profile({
             <span className="athlete-level-badge">{level} Athlete</span>
 
             <div className="athlete-stats-list">
+              <div className="athlete-stat-row">
+                <span className="stat-label">Diet Preference:</span>
+                <strong>{dietPref === "nonveg" ? "🍗 Non-Veg" : "🥬 Vegetarian"}</strong>
+              </div>
               <div className="athlete-stat-row">
                 <span className="stat-label">Logged Sessions:</span>
                 <strong>{workoutHistory.length}</strong>
@@ -164,11 +186,50 @@ export default function Profile({
             </div>
           </div>
 
+          {/* Frontend Demo Authentication Card */}
+          <div className="profile-card auth-session-card">
+            <div className="card-header-row">
+              <h4 className="card-title-sm">🔒 Frontend Demo Session</h4>
+              <span className="notice-chip">Demo Mode</span>
+            </div>
+            {currentUser?.isLoggedIn ? (
+              <div className="auth-session-details">
+                <p className="auth-session-text">
+                  Signed in as: <strong>{currentUser.email}</strong>
+                </p>
+                <div className="auth-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger btn-block"
+                    onClick={onLogout}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="auth-session-details">
+                <p className="auth-session-text">
+                  Currently running in <strong>Guest Mode</strong>.
+                </p>
+                <div className="auth-card-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-block"
+                    onClick={() => onNavigate && onNavigate("auth")}
+                  >
+                    🔑 Sign In / Register
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Danger Zone */}
           <div className="profile-card danger-zone-card">
             <h4 className="danger-zone-title">⚠️ Data Management</h4>
             <p className="danger-zone-desc">
-              Clear all locally stored completed exercises and workout logs. This returns the app to its fresh installation state.
+              Reset your completed exercises and workout history.
             </p>
             <button
               type="button"

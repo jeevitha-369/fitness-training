@@ -1,38 +1,57 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import HumanModel3D from "./HumanModel3D";
+import { useState, useEffect, useMemo } from "react";
+import WorkoutVideoPlayer from "./WorkoutVideoPlayer";
 import {
-  WORKOUT_CATEGORIES,
   WORKOUT_CATEGORIES_DATA,
   getExerciseDetails,
   findExerciseByStableId,
 } from "../data/workoutData";
 import "./WorkoutGuidance.css";
 
-// Sub-component for Exercise Metric Tracker (Reps or Timed Duration)
-// Using key={exercise.id} ensures clean state initialization without useEffect setState cascading renders
-function ExerciseMetricTracker({
-  exercise,
+// Formats seconds to mm:ss
+function formatTime(secs) {
+  if (isNaN(secs) || secs < 0) return "00:00";
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// Active Exercise Session Runner (Keyed by currentExercise.id for pristine state on each exercise)
+function ActiveExercisePanel({
+  currentExercise,
+  selectedLevel,
+  currentCategoryData,
+  isCurrentCompleted,
+  canGoPrev,
+  isLastExercise,
+  onPrev,
+  onNext,
   onComplete,
 }) {
-  const isTimed = exercise.isTimed;
-  const targetCount = exercise.targetCount || (isTimed ? 20 : 10);
+  const details = getExerciseDetails(currentExercise?.name);
 
-  const [repsDone, setRepsDone] = useState(0);
-  const [timerSeconds, setTimerSeconds] = useState(targetCount);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  // Exercise duration & pacing metrics
+  const isTimed = Boolean(currentExercise?.isTimed);
+  const targetCount = currentExercise?.targetCount || (isTimed ? 20 : 10);
+  // Timed exercises use targetCount seconds; rep-based exercises use brisk 2s/rep cadence
+  const assignedDuration = isTimed ? targetCount : targetCount * 2;
 
-  // Plank countdown effect
+  // Synchronization states for exercise demo & timer
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(assignedDuration);
+  const [isFinished, setIsFinished] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+
+  // Exercise demonstration timer interval
   useEffect(() => {
-    if (!isTimed || !isTimerRunning) return;
+    if (!hasStarted || !isPlaying || timerSeconds <= 0) return;
 
     const interval = setInterval(() => {
       setTimerSeconds((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          setIsTimerRunning(false);
-          onComplete(exercise.id);
+          setIsPlaying(false);
+          setIsFinished(true);
           return 0;
         }
         return prev - 1;
@@ -40,118 +59,282 @@ function ExerciseMetricTracker({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isTimed, isTimerRunning, exercise.id, onComplete]);
+  }, [hasStarted, isPlaying, timerSeconds]);
+
+  // Start exercise handler
+  const handleStartExercise = () => {
+    setHasStarted(true);
+    setIsPlaying(true);
+    setIsFinished(false);
+    if (timerSeconds === 0) {
+      setTimerSeconds(assignedDuration);
+    }
+  };
+
+  // Toggle play/pause
+  const handleTogglePlay = () => {
+    if (!hasStarted) {
+      handleStartExercise();
+    } else {
+      setIsPlaying((p) => !p);
+    }
+  };
+
+  // Replay handler
+  const handleReplayExercise = () => {
+    setHasStarted(true);
+    setIsPlaying(true);
+    setIsFinished(false);
+    setTimerSeconds(assignedDuration);
+  };
+
+  // Automated cadence calculation (no manual repetition clicking required)
+  const currentCadenceRep = isTimed
+    ? null
+    : Math.min(
+        targetCount,
+        Math.floor(((assignedDuration - timerSeconds) / assignedDuration) * targetCount) + 1
+      );
+
+  // Completion Eligibility:
+  // Complete button is strictly DISABLED before start and while timer is running.
+  // Unlocks only after assigned timer reaches 0 (or if already completed previously).
+  const canMarkComplete = isCurrentCompleted || isFinished || (hasStarted && timerSeconds === 0);
 
   return (
-    <div className="exercise-metric-box">
-      <div className="metric-header">
-        <span className="metric-label">EXERCISE GOAL</span>
-        <span className="metric-badge">{exercise.target}</span>
-      </div>
-
-      {isTimed ? (
-        <div className="timed-tracker">
-          <div className="timer-ring">
-            <div className="countdown-number">{timerSeconds}s</div>
-            <span className="countdown-sub">DURATION REMAINING</span>
+    <div className="guidance-content-grid">
+      {/* Left Column: AI Human Demonstration Video Player Card */}
+      <section className="video-card-section">
+        {/* Exercise Info Header */}
+        <div className="exercise-badge-header">
+          <div>
+            <span className={`intensity-badge ${currentCategoryData.badgeColor || "badge-easy"}`}>
+              {selectedLevel} • {currentCategoryData.intensity} Intensity
+            </span>
+            <h2 className="current-exercise-title">{currentExercise.name}</h2>
           </div>
 
-          <div className="timer-actions">
-            <button
-              type="button"
-              className={`timer-toggle-btn ${isTimerRunning ? "pause" : "start"}`}
-              onClick={() => setIsTimerRunning((r) => !r)}
-            >
-              {isTimerRunning
-                ? "⏸ Pause Timer"
-                : timerSeconds === 0
-                ? "↺ Restart Timer"
-                : "▶ Start Duration Timer"}
-            </button>
-
-            <button
-              type="button"
-              className="timer-add-btn"
-              onClick={() => setTimerSeconds((s) => s + 10)}
-              title="Add 10 seconds"
-            >
-              +10s
-            </button>
-
-            <button
-              type="button"
-              className="timer-reset-btn"
-              onClick={() => {
-                setIsTimerRunning(false);
-                setTimerSeconds(targetCount);
-              }}
-            >
-              ↺ Reset
-            </button>
+          <div className="target-pill-wrap">
+            <span className="exercise-target-badge">🎯 {currentExercise.target}</span>
+            {isCurrentCompleted && (
+              <span className="completed-success-tag">✓ Completed</span>
+            )}
           </div>
         </div>
-      ) : (
-        <div className="rep-tracker">
-          <div className="rep-counter-display">
-            <span className="current-reps">{repsDone}</span>
-            <span className="rep-slash">/</span>
-            <span className="target-reps">{targetCount}</span>
-            <span className="rep-unit">Reps</span>
-          </div>
 
-          <div className="rep-actions">
-            <div className="rep-button-group">
-            <button
-              type="button"
-              className="rep-sub-btn"
-              onClick={() => setRepsDone((r) => Math.max(0, r - 1))}
-              title="Minus 1 rep"
-            >
-              -1
-            </button>
-            <button
-              type="button"
-              className="add-rep-btn"
-              onClick={() => {
-                setRepsDone((r) => {
-                  const next = r + 1;
-                  if (next >= targetCount) {
-                    onComplete(exercise.id);
-                  }
-                  return next;
-                });
-              }}
-            >
-              +1 Rep Done
-            </button>
-            <button
-              type="button"
-              className="rep-five-btn"
-              onClick={() => {
-                setRepsDone((r) => {
-                  const next = r + 5;
-                  if (next >= targetCount) {
-                    onComplete(exercise.id);
-                  }
-                  return next;
-                });
-              }}
-            >
-              +5 Reps
-            </button>
+        {/* AI Human Demonstration Video Player */}
+        <WorkoutVideoPlayer
+          videoUrl={currentExercise.videoUrl}
+          referenceImage={currentExercise.referenceImage}
+          exerciseName={currentExercise.name}
+          trainer={currentExercise.trainer || "FitTrack AI Human Fitness Trainer"}
+          isPlaying={isPlaying}
+          onTogglePlay={handleTogglePlay}
+          onReplay={handleReplayExercise}
+          hasStarted={hasStarted}
+          onStart={handleStartExercise}
+          playbackSpeed={playbackSpeed}
+          onChangePlaybackSpeed={setPlaybackSpeed}
+          isFinished={isFinished}
+        />
+
+        {/* Understandable Exercise Timer & Cadence Tracker (No manual clicks needed) */}
+        <div className="exercise-interactive-tracker-wrap">
+          <div className="exercise-metric-box">
+            <div className="metric-header">
+              <span className="metric-label">EXERCISE TIMER &amp; PACING</span>
+              <span className="metric-badge">
+                {hasStarted
+                  ? isFinished
+                    ? "🎉 COMPLETED"
+                    : isPlaying
+                    ? "⚡ IN PROGRESS"
+                    : "⏸ PAUSED"
+                  : "READY TO START"}
+              </span>
+            </div>
+
+            <div className="timed-tracker">
+              <div className="timer-ring">
+                <div className="countdown-number">{timerSeconds}s</div>
+                <span className="countdown-sub">
+                  {isTimed
+                    ? "ISOMETRIC HOLD REMAINING"
+                    : `CADENCE PACING • REP ${hasStarted && timerSeconds > 0 ? currentCadenceRep : isFinished ? targetCount : 0} / ${targetCount}`}
+                </span>
+              </div>
+
+              {/* Progress bar across assigned duration */}
+              <div className="exercise-duration-bar-wrap">
+                <div
+                  className="exercise-duration-bar-fill"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(0, ((assignedDuration - timerSeconds) / (assignedDuration || 1)) * 100)
+                    )}%`,
+                  }}
+                ></div>
+              </div>
+
+              <div className="timer-actions">
+                <button
+                  type="button"
+                  className={`timer-toggle-btn ${isPlaying ? "pause" : "start"}`}
+                  onClick={handleTogglePlay}
+                >
+                  {!hasStarted
+                    ? "▶ Start Exercise & Timer"
+                    : isPlaying
+                    ? "⏸ Pause Workout"
+                    : timerSeconds === 0
+                    ? "↺ Restart Workout"
+                    : "▶ Resume Workout"}
+                </button>
+
+                <button
+                  type="button"
+                  className="timer-add-btn"
+                  onClick={() => setTimerSeconds((s) => s + 10)}
+                  title="Add 10 seconds"
+                >
+                  +10s
+                </button>
+
+                <button
+                  type="button"
+                  className="timer-reset-btn"
+                  onClick={handleReplayExercise}
+                  title="Reset to beginning"
+                >
+                  ↺ Reset
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Next / Previous Controls & Disabled/Enabled Complete Button */}
+        <div className="exercise-nav-actions">
+          <button
+            type="button"
+            className="btn-nav prev"
+            onClick={onPrev}
+            disabled={!canGoPrev}
+          >
+            ← Previous Exercise
+          </button>
+
+          {/* Complete button strictly disabled before start and while timer runs */}
+          <button
+            type="button"
+            className={`btn-mark-done ${
+              isCurrentCompleted
+                ? "already-done"
+                : canMarkComplete
+                ? "ready-to-complete"
+                : isPlaying
+                ? "running"
+                : "disabled"
+            }`}
+            onClick={() => {
+              if (canMarkComplete) {
+                onComplete(currentExercise.id);
+              }
+            }}
+            disabled={!canMarkComplete}
+            title={
+              isCurrentCompleted
+                ? "Exercise completed"
+                : canMarkComplete
+                ? "Mark exercise complete"
+                : isPlaying
+                ? `Complete unlocks when exercise timer finishes (${timerSeconds}s remaining)`
+                : "Press Start to begin demonstration and countdown timer"
+            }
+          >
+            {isCurrentCompleted
+              ? "✓ Exercise Marked Complete"
+              : canMarkComplete
+              ? "✓ Mark Exercise Complete"
+              : isPlaying
+              ? `⏳ Complete in ${timerSeconds}s`
+              : "🔒 Complete (Press Start to Begin)"}
+          </button>
 
           <button
             type="button"
-            className="rep-reset-btn"
-              onClick={() => setRepsDone(0)}
-              title="Reset rep count"
-            >
-              ↺
-            </button>
+            className="btn-nav next"
+            onClick={onNext}
+          >
+            {isLastExercise ? "Finish Routine →" : "Next Exercise →"}
+          </button>
+        </div>
+      </section>
+
+      {/* Right Column: Instructions, Form Cues, Pro Tips */}
+      <section className="exercise-instructions-card">
+        <div className="instructions-header">
+          <h3 className="section-title">Form Guide &amp; Instructions</h3>
+          <span className="category-meta">{details.category}</span>
+        </div>
+
+        {/* Target Muscles Badges */}
+        <div className="muscles-targeted-group">
+          <span className="tag-label">Target Muscle Focus:</span>
+          <div className="muscle-tags-wrap">
+            {(details.muscles || []).map((m, i) => (
+              <span key={i} className="muscle-pill">
+                {m}
+              </span>
+            ))}
           </div>
         </div>
-      )}
+
+        {/* Starting Position */}
+        <div className="form-step-block">
+          <h4 className="step-title">
+            <span className="step-icon">🧘‍♀️</span> Starting Posture &amp; Alignment
+          </h4>
+          <p className="step-text">{details.startingPosition}</p>
+        </div>
+
+        {/* Execution Steps */}
+        <div className="form-step-block">
+          <h4 className="step-title">
+            <span className="step-icon">📋</span> Step-by-Step Movement
+          </h4>
+          <ol className="execution-steps-list">
+            {(details.steps || []).map((step, idx) => (
+              <li key={idx} className="step-item">
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Trainer Pro Tip */}
+        {details.tip && (
+          <div className="trainer-pro-tip-box">
+            <span className="tip-badge">💡 COACH FORM TIP</span>
+            <p className="pro-tip-text">{details.tip}</p>
+          </div>
+        )}
+
+        {/* Common Mistake to Avoid */}
+        {details.mistake && (
+          <div className="mistake-warning-box">
+            <span className="warning-badge">⚠️ COMMON MISTAKE TO AVOID</span>
+            <p className="mistake-text">{details.mistake}</p>
+          </div>
+        )}
+
+        {/* Equipment */}
+        <div className="equipment-info-row">
+          <span className="eq-label">Equipment Required:</span>
+          <strong className="eq-val">{details.equipment || "None (Bodyweight)"}</strong>
+        </div>
+      </section>
     </div>
   );
 }
@@ -159,140 +342,65 @@ function ExerciseMetricTracker({
 export default function WorkoutGuidance({
   initialExercise,
   initialLevel = "Beginner",
-  initialCategory,
   onBack,
   onCompleteExercise,
   onSaveWorkoutToHistory,
   completedList = [],
+  onLevelChange,
 }) {
-  // Determine initial category and playlist
-  const resolveInitialState = () => {
-    // 1. If an exercise with stable ID is provided
+  // Determine initial level & exercise index directly
+  const [selectedLevel, setSelectedLevel] = useState(() => {
+    return initialLevel || "Beginner";
+  });
+
+  const [exerciseIndex, setExerciseIndex] = useState(() => {
     if (initialExercise?.id) {
       const match = findExerciseByStableId(initialExercise.id);
-      if (match) {
-        const isBp = match.category.type === "bodyPart";
-        const catKey = match.category.name;
-        const exercises = match.category.exercises;
-        const idx = exercises.findIndex((e) => e.id === match.exercise.id);
-        return {
-          tab: isBp ? "bodyPart" : "level",
-          level: isBp ? "Beginner" : catKey,
-          bodyPart: isBp ? catKey : "Legs",
-          index: Math.max(0, idx),
-        };
+      if (match && match.category?.name === (initialLevel || "Beginner")) {
+        const idx = match.category.exercises.findIndex((e) => e.id === match.exercise.id);
+        return Math.max(0, idx);
       }
     }
+    return 0;
+  });
 
-    // 2. If a body part category was selected
-    if (initialCategory && WORKOUT_CATEGORIES_DATA[initialCategory]) {
-      const isBp = WORKOUT_CATEGORIES_DATA[initialCategory].type === "bodyPart";
-      const exercises = WORKOUT_CATEGORIES_DATA[initialCategory].exercises;
-      let idx = 0;
-      if (initialExercise?.name) {
-        const found = exercises.findIndex(
-          (e) => e.name.toLowerCase() === initialExercise.name.toLowerCase()
-        );
-        if (found !== -1) idx = found;
-      }
-      return {
-        tab: isBp ? "bodyPart" : "level",
-        level: isBp ? "Beginner" : initialCategory,
-        bodyPart: isBp ? initialCategory : "Legs",
-        index: idx,
-      };
-    }
+  // Compute active category and playlist
+  const currentCategoryData = useMemo(() => {
+    return (
+      WORKOUT_CATEGORIES_DATA[selectedLevel] || WORKOUT_CATEGORIES_DATA.Beginner
+    );
+  }, [selectedLevel]);
 
-    // 3. If a workout level was selected
-    if (initialLevel && WORKOUT_CATEGORIES_DATA[initialLevel]) {
-      const exercises = WORKOUT_CATEGORIES_DATA[initialLevel].exercises;
-      let idx = 0;
-      if (initialExercise?.name) {
-        const found = exercises.findIndex(
-          (e) => e.name.toLowerCase() === initialExercise.name.toLowerCase()
-        );
-        if (found !== -1) idx = found;
-      }
-      return {
-        tab: "level",
-        level: initialLevel,
-        bodyPart: "Legs",
-        index: idx,
-      };
-    }
-
-    // Fallback: Default to Beginner Jumping Jacks
-    return {
-      tab: "level",
-      level: "Beginner",
-      bodyPart: "Legs",
-      index: 0,
-    };
-  };
-
-  const initialResolved = resolveInitialState();
-
-  const [activeTab, setActiveTab] = useState(initialResolved.tab);
-  const [selectedLevel, setSelectedLevel] = useState(initialResolved.level);
-  const [selectedBodyPart, setSelectedBodyPart] = useState(initialResolved.bodyPart);
-  const [exerciseIndex, setExerciseIndex] = useState(initialResolved.index);
-
-  // Compute active category data & playlist
-  const activeCategoryKey = activeTab === "level" ? selectedLevel : selectedBodyPart;
-  const currentCategoryData =
-    WORKOUT_CATEGORIES_DATA[activeCategoryKey] || WORKOUT_CATEGORIES_DATA.Beginner;
-  const currentPlaylist = currentCategoryData.exercises;
-
-  // Safe exercise reference (clamped to bounds)
-  const safeIndex = Math.min(Math.max(0, exerciseIndex), currentPlaylist.length - 1);
+  const currentPlaylist = currentCategoryData.exercises || [];
+  const safeIndex = Math.min(Math.max(0, exerciseIndex), Math.max(0, currentPlaylist.length - 1));
   const currentExercise = currentPlaylist[safeIndex] || currentPlaylist[0];
-  const details = getExerciseDetails(currentExercise?.name);
+  const nextExercise = safeIndex < currentPlaylist.length - 1 ? currentPlaylist[safeIndex + 1] : null;
 
-  // Video / Display mode state
-  const [displayMode, setDisplayMode] = useState("auto"); // "auto", "simulation", "guide"
-  const [videoError, setVideoError] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const videoRef = useRef(null);
-
-  // Overall session elapsed stopwatch
+  // Overall session stopwatch
   const [sessionElapsedTime, setSessionElapsedTime] = useState(0);
 
-  // Completed exercises set
-  const [sessionCompletedIds, setSessionCompletedIds] = useState(
-    () => new Set(completedList)
-  );
+  // Rest Timer state between exercises
+  const [isRestActive, setIsRestActive] = useState(false);
+  const [restSeconds, setRestSeconds] = useState(30);
+
+  // Completed tracking
+  const [locallyCompletedIds, setLocallyCompletedIds] = useState(() => new Set());
   const [showSummary, setShowSummary] = useState(false);
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
 
-  // Handler for marking exercise complete
-  const handleExerciseComplete = useCallback((exId) => {
-    const targetId = exId || currentExercise.id;
-    setSessionCompletedIds((prev) => new Set([...prev, targetId, currentExercise.name]));
-    if (onCompleteExercise) {
-      onCompleteExercise(targetId, currentExercise.name);
+  const sessionCompletedIds = useMemo(() => {
+    const combined = new Set(completedList);
+    for (const id of locallyCompletedIds) {
+      combined.add(id);
     }
-  }, [currentExercise.id, currentExercise.name, onCompleteExercise]);
+    return combined;
+  }, [completedList, locallyCompletedIds]);
 
-  // Sync video playback speed
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.playbackRate = playbackSpeed;
-    }
-  }, [playbackSpeed, currentExercise?.id]);
+  const isCurrentCompleted =
+    sessionCompletedIds.has(currentExercise?.id) ||
+    sessionCompletedIds.has(currentExercise?.name);
 
-  // Handle Play/Pause on Video
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.play().catch(() => {});
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  }, [isPlaying, currentExercise?.id]);
-
-  // Overall session elapsed stopwatch
+  // Overall session stopwatch
   useEffect(() => {
     const id = setInterval(() => {
       setSessionElapsedTime((s) => s + 1);
@@ -300,568 +408,324 @@ export default function WorkoutGuidance({
     return () => clearInterval(id);
   }, []);
 
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  // Rest Timer interval
+  useEffect(() => {
+    if (!isRestActive) return;
+
+    const interval = setInterval(() => {
+      setRestSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setIsRestActive(false);
+          if (nextExercise) {
+            setExerciseIndex((idx) => idx + 1);
+          }
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRestActive, nextExercise]);
+
+  // Level switch
+  const handleLevelChange = (lvl) => {
+    setSelectedLevel(lvl);
+    setExerciseIndex(0);
+    setIsRestActive(false);
+    if (onLevelChange) onLevelChange(lvl);
+  };
+
+  // Navigation handlers
+  const handlePrevExercise = () => {
+    if (safeIndex > 0) {
+      setExerciseIndex(safeIndex - 1);
+      setIsRestActive(false);
+    }
   };
 
   const handleNextExercise = () => {
     if (safeIndex < currentPlaylist.length - 1) {
       setExerciseIndex(safeIndex + 1);
-      setVideoError(false);
-      setIsPlaying(true);
+      setIsRestActive(false);
     } else {
+      handleFinishAndSave();
       setShowSummary(true);
     }
   };
 
-  const handlePrevExercise = () => {
-    if (safeIndex > 0) {
-      setExerciseIndex(safeIndex - 1);
-      setVideoError(false);
-      setIsPlaying(true);
+  // Exercise completion handler
+  const handleExerciseComplete = (exId) => {
+    const idToMark = exId || currentExercise.id;
+    setLocallyCompletedIds((prev) => {
+      const next = new Set(prev);
+      next.add(idToMark);
+      return next;
+    });
+
+    if (onCompleteExercise) {
+      onCompleteExercise(idToMark);
+    }
+
+    if (nextExercise) {
+      setIsRestActive(true);
+      setRestSeconds(30);
     }
   };
 
-  const isCurrentCompleted =
-    sessionCompletedIds.has(currentExercise.id) ||
-    sessionCompletedIds.has(currentExercise.name);
-
-  const handleFinishWorkout = () => {
-    setIsPlaying(false);
-    setShowSummary(true);
-  };
-
-  // Save completed workout session to FitTrack History
-  const handleSaveToHistory = () => {
+  // Finish workout session and save
+  const handleFinishAndSave = () => {
     if (hasSavedHistory) return;
 
+    const completedInLevel = currentPlaylist.filter(
+      (ex) => sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name)
+    );
+    const estCalories = completedInLevel.reduce(
+      (acc, ex) => acc + (ex.calories || 10),
+      0
+    );
+
+    const todayDate = new Date().toISOString().split("T")[0];
+    const summaryData = {
+      id: `workout-${todayDate}-${selectedLevel.toLowerCase()}`,
+      date: todayDate,
+      level: selectedLevel,
+      workoutType: `${selectedLevel} Routine`,
+      exercisesCompleted: completedInLevel.length,
+      totalExercises: currentPlaylist.length,
+      durationMinutes: Math.max(1, Math.round(sessionElapsedTime / 60)),
+      caloriesBurned: estCalories,
+      completedExerciseIds: Array.from(sessionCompletedIds),
+    };
+
     if (onSaveWorkoutToHistory) {
-      const workoutTitle =
-        activeTab === "level"
-          ? `${selectedLevel} Workout`
-          : `${selectedBodyPart} Workout`;
-
-      const completedCount = currentPlaylist.filter(
-        (ex) => sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name)
-      ).length;
-
-      const totalCalories = currentPlaylist.reduce((acc, ex) => {
-        return sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name)
-          ? acc + (ex.calories || 8)
-          : acc;
-      }, 0);
-
-      const completedObjs = currentPlaylist.filter(
-        (ex) => sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name)
-      );
-
-      onSaveWorkoutToHistory({
-        level: workoutTitle,
-        category: activeCategoryKey,
-        count: completedCount || currentPlaylist.length,
-        totalExercises: currentPlaylist.length,
-        exerciseIds: completedObjs.map((e) => e.id),
-        exerciseNames: completedObjs.map((e) => e.name),
-        calories: totalCalories || 40,
-        durationMinutes: Math.max(1, Math.round(sessionElapsedTime / 60)),
-      });
-
-      setHasSavedHistory(true);
+      onSaveWorkoutToHistory(summaryData);
     }
-
-    setShowSummary(false);
-    onBack();
+    setHasSavedHistory(true);
   };
 
+  // Progress metrics
+  const completedInLevel = currentPlaylist.filter(
+    (ex) => sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name)
+  );
+  const levelProgressPct = Math.round(
+    (completedInLevel.length / (currentPlaylist.length || 1)) * 100
+  );
+
   return (
-    <div className="guidance-container">
-      {/* Top Header Bar */}
-      <header className="guidance-header">
-        <div className="guidance-header-left">
-          <button className="back-btn" onClick={onBack} title="Return to Tracker">
-            ← Return to FitTrack
-          </button>
-          <div className="guidance-title-area">
-            <h1>Human Workout Guidance System</h1>
-            <span className="live-badge">
-              ● {activeCategoryKey} Workout • Exercise {safeIndex + 1} of {currentPlaylist.length}
-            </span>
+    <div className="workout-guidance-page women-theme-root">
+      {/* Top Navigation & Session Bar */}
+      <header className="guidance-top-header">
+        <div className="header-nav-left">
+          {onBack && (
+            <button
+              type="button"
+              className="back-btn"
+              onClick={onBack}
+              title="Return to previous screen"
+            >
+              ← Back
+            </button>
+          )}
+          <div className="guidance-title-wrap">
+            <span className="guidance-overline">FITTRACK AI HUMAN FITNESS TRAINER</span>
+            <h1 className="guidance-heading">
+              {currentExercise.name} • {selectedLevel} Level
+            </h1>
           </div>
         </div>
 
-        <div className="guidance-header-right">
-          <div className="workout-stopwatch">
-            <span className="stopwatch-label">SESSION DURATION</span>
-            <span className="stopwatch-time">{formatTime(sessionElapsedTime)}</span>
+        <div className="header-nav-right">
+          <div className="session-stopwatch-badge" title="Total active session time">
+            <span className="stopwatch-icon">⏱️</span>
+            <span className="stopwatch-val">{formatTime(sessionElapsedTime)}</span>
           </div>
 
           <button
             type="button"
             className="finish-session-btn"
-            onClick={handleFinishWorkout}
+            onClick={() => {
+              handleFinishAndSave();
+              setShowSummary(true);
+            }}
           >
-            🏁 Finish Workout
+            🏆 Finish Workout Session
           </button>
         </div>
       </header>
 
-      {/* Workout Category & Level Selectors */}
-      <div className="category-selector-card">
-        <div className="selector-tabs">
-          <button
-            className={`tab-btn ${activeTab === "level" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("level");
-              setExerciseIndex(0);
-              setVideoError(false);
-            }}
-          >
-            ⚡ By Difficulty Level
-          </button>
-          <button
-            className={`tab-btn ${activeTab === "bodyPart" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("bodyPart");
-              setExerciseIndex(0);
-              setVideoError(false);
-            }}
-          >
-            💪 By Target Body Part
-          </button>
+      {/* 3 Categories Primary Level Selector */}
+      <nav className="level-selection-bar" aria-label="Workout Level Selection">
+        <div className="level-pills-group">
+          {["Beginner", "Intermediate", "Advanced"].map((lvl) => {
+            const isSelected = selectedLevel === lvl;
+            const lvlData = WORKOUT_CATEGORIES_DATA[lvl];
+            return (
+              <button
+                key={lvl}
+                type="button"
+                className={`level-pill-btn ${isSelected ? "active" : ""}`}
+                onClick={() => handleLevelChange(lvl)}
+              >
+                <span className="pill-icon">{lvlData?.icon || "⚡"}</span>
+                <span className="pill-name">{lvl}</span>
+                <span className="pill-duration">{lvlData?.duration}</span>
+              </button>
+            );
+          })}
         </div>
+      </nav>
 
-        <div className="selector-options">
-          {activeTab === "level" ? (
-            <div className="pill-group">
-              {WORKOUT_CATEGORIES.LEVELS.map((lvl) => (
-                <button
-                  key={lvl}
-                  className={`pill-btn ${selectedLevel === lvl ? "active" : ""}`}
-                  onClick={() => {
-                    setSelectedLevel(lvl);
-                    setExerciseIndex(0);
-                    setVideoError(false);
-                  }}
-                >
-                  {lvl} ({WORKOUT_CATEGORIES_DATA[lvl].exercises.length})
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="pill-group">
-              {WORKOUT_CATEGORIES.BODY_PARTS.map((bp) => (
-                <button
-                  key={bp}
-                  className={`pill-btn ${selectedBodyPart === bp ? "active" : ""}`}
-                  onClick={() => {
-                    setSelectedBodyPart(bp);
-                    setExerciseIndex(0);
-                    setVideoError(false);
-                  }}
-                >
-                  {bp} ({WORKOUT_CATEGORIES_DATA[bp].exercises.length})
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Stepper Dots with Stable Identifiers */}
-        <div className="playlist-stepper">
-          <span className="stepper-label">
-            Workout Playlist ({safeIndex + 1}/{currentPlaylist.length}):
+      {/* Horizontal Exercise Stepper Playlist */}
+      <div className="exercise-playlist-strip">
+        <div className="strip-info">
+          <span className="strip-title">{selectedLevel} Training Routine</span>
+          <span className="strip-progress">
+            {completedInLevel.length}/{currentPlaylist.length} Completed ({levelProgressPct}%)
           </span>
-          <div className="stepper-dots">
-            {currentPlaylist.map((ex, idx) => {
-              const done =
-                sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name);
-              return (
-                <button
-                  key={ex.id}
-                  className={`step-dot ${idx === safeIndex ? "current" : ""} ${
-                    done ? "completed" : ""
-                  }`}
-                  onClick={() => {
-                    setExerciseIndex(idx);
-                    setVideoError(false);
-                    setIsPlaying(true);
-                  }}
-                  title={`${ex.name} — ${ex.target}`}
-                >
-                  {done ? "✓" : idx + 1}
-                </button>
-              );
-            })}
-          </div>
+        </div>
+
+        <div className="playlist-chips-scroll">
+          {currentPlaylist.map((ex, idx) => {
+            const isDone =
+              sessionCompletedIds.has(ex.id) || sessionCompletedIds.has(ex.name);
+            const isCurrent = idx === safeIndex;
+            return (
+              <button
+                key={ex.id}
+                type="button"
+                className={`playlist-chip ${isCurrent ? "current" : ""} ${isDone ? "done" : ""}`}
+                onClick={() => {
+                  setExerciseIndex(idx);
+                  setIsRestActive(false);
+                }}
+                title={`${ex.name} (${ex.target})`}
+              >
+                <span className="chip-num">{isDone ? "✓" : idx + 1}</span>
+                <span className="chip-name">{ex.name}</span>
+                <span className="chip-target">{ex.target}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Main Guidance Grid */}
-      <div className="guidance-main-grid">
-        {/* Left Column: Human Demonstration Area */}
-        <section className="viewer-card">
-          <div className="viewer-top-bar">
-            <div className="exercise-title-badge">
-              <h2>{currentExercise.name}</h2>
-              <span className="exercise-category-tag">{activeCategoryKey}</span>
-              {isCurrentCompleted && (
-                <span className="completed-pill">✓ Marked Complete</span>
-              )}
+      {/* Rest Timer Banner (Between Exercises) */}
+      {isRestActive && (
+        <section className="rest-timer-banner" aria-live="polite">
+          <div className="rest-left">
+            <span className="rest-icon">🧘‍♀️</span>
+            <div className="rest-text-block">
+              <strong className="rest-title">Rest &amp; Recovery Interval</strong>
+              <p className="rest-sub">
+                Breathe deeply and hydrate. Next exercise:{" "}
+                <strong>{nextExercise ? nextExercise.name : "Routine Complete"}</strong>
+              </p>
             </div>
+          </div>
 
-            {/* Display Mode Switcher */}
-            <div className="demonstration-mode-selector">
-              <span className="control-label">Mode:</span>
+          <div className="rest-center">
+            <div className="rest-seconds-display">{restSeconds}s</div>
+            <div className="rest-adjust-buttons">
               <button
-                className={`cam-btn ${displayMode === "auto" ? "active" : ""}`}
-                onClick={() => setDisplayMode("auto")}
-                title="Recommended demonstration view"
+                type="button"
+                className="btn-rest-adj"
+                onClick={() => setRestSeconds((s) => Math.max(5, s - 10))}
+                title="Subtract 10 seconds"
               >
-                Standard
+                -10s
               </button>
               <button
-                className={`cam-btn ${displayMode === "simulation" ? "active" : ""}`}
-                onClick={() => setDisplayMode("simulation")}
-                title="3D Kinematic Simulation"
+                type="button"
+                className="btn-rest-adj"
+                onClick={() => setRestSeconds((s) => s + 10)}
+                title="Add 10 seconds"
               >
-                3D Model
-              </button>
-              <button
-                className={`cam-btn ${displayMode === "guide" ? "active" : ""}`}
-                onClick={() => setDisplayMode("guide")}
-                title="Illustrated Step Guide"
-              >
-                Guide
+                +10s
               </button>
             </div>
           </div>
 
-          {/* Demonstration Viewing Area */}
-          <div className="canvas-wrapper">
-            {/* Scenario A: Real-Human Video Available */}
-            {currentExercise.hasRealHumanVideo &&
-            currentExercise.videoUrl &&
-            !videoError &&
-            displayMode !== "simulation" &&
-            displayMode !== "guide" ? (
-              <div className="real-human-video-container">
-                <video
-                  ref={videoRef}
-                  key={currentExercise.videoUrl}
-                  src={currentExercise.videoUrl}
-                  playsInline
-                  loop
-                  muted
-                  autoPlay
-                  onError={() => setVideoError(true)}
-                  className="real-human-video-player"
-                />
-
-                <div className="video-verification-badge">
-                  <span className="badge-icon">✅</span>
-                  <div className="badge-details">
-                    <strong>Real-Human Exercise Demonstration</strong>
-                    <span>Source: {currentExercise.source}</span>
-                  </div>
-                </div>
-              </div>
-            ) : displayMode === "simulation" ||
-              (!currentExercise.hasRealHumanVideo && displayMode !== "guide") ? (
-              /* Scenario B: 3D Biomechanical Simulation (Explicitly Disclaimed) */
-              <div className="simulation-wrapper">
-                {/* Honest Asset Status Banner */}
-                {!currentExercise.hasRealHumanVideo && (
-                  <div className="honest-asset-notice">
-                    <span className="notice-icon">📹</span>
-                    <div className="notice-content">
-                      <strong>Form Guide & 3D Movement Simulation</strong>
-                      <p>
-                        Authentic real-human demonstration footage for <em>{currentExercise.name}</em> is in licensed production. Please follow the verified step-by-step form cues and interactive 3D biomechanical motion model below.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <Canvas
-                  shadows
-                  camera={{ position: [0, 1.6, 5.8], fov: 38 }}
-                  style={{
-                    background:
-                      "radial-gradient(circle at 50% 30%, #f1edff 0%, #e2daf8 55%, #cfc5f0 100%)",
-                  }}
-                >
-                  <ambientLight intensity={1.3} />
-                  <directionalLight
-                    castShadow
-                    position={[4, 6, 4]}
-                    intensity={2.1}
-                    shadow-mapSize-width={1024}
-                    shadow-mapSize-height={1024}
-                  />
-                  <directionalLight position={[-3, 4, -3]} intensity={0.8} />
-
-                  <mesh
-                    receiveShadow
-                    rotation={[-Math.PI / 2, 0, 0]}
-                    position={[0, -0.01, 0]}
-                  >
-                    <planeGeometry args={[16, 16]} />
-                    <meshStandardMaterial color="#ddd7f5" roughness={0.9} />
-                  </mesh>
-
-                  <HumanModel3D
-                    exerciseName={currentExercise.name}
-                    isPlaying={isPlaying}
-                    speed={playbackSpeed}
-                  />
-
-                  <OrbitControls
-                    enablePan={false}
-                    minDistance={2.8}
-                    maxDistance={8.5}
-                    target={[0, 1.2, 0]}
-                    maxPolarAngle={Math.PI / 2 + 0.05}
-                  />
-                </Canvas>
-
-                <div className="simulation-disclaimer-pill">
-                  ℹ️ 3D Biomechanical Simulation (Interactive Kinematic Model)
-                </div>
-              </div>
-            ) : (
-              /* Scenario C: Illustrated Text Guide */
-              <div className="webgl-fallback-card">
-                <div className="fallback-icon">🧘‍♂️</div>
-                <h3>{currentExercise.name} Form Guide</h3>
-                <p>
-                  <strong>Target:</strong> {currentExercise.target} • <strong>Equipment:</strong>{" "}
-                  {details.equipment}
-                </p>
-                <div className="fallback-steps">
-                  <p>
-                    <strong>Starting Posture:</strong> {details.startingPosition}
-                  </p>
-                  <ol>
-                    {details.steps.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-            )}
-
-            {/* Pro Form Cue Overlay */}
-            <div className="trainer-cue-overlay">
-              <span className="cue-icon">💡</span>
-              <span className="cue-text">{details.tip}</span>
-            </div>
-          </div>
-
-          {/* Controls Bar */}
-          <div className="viewer-controls-bar">
-            {/* Play / Pause / Restart */}
-            <div className="playback-group">
-              <button
-                type="button"
-                className={`control-btn play-btn ${isPlaying ? "playing" : ""}`}
-                onClick={() => setIsPlaying((p) => !p)}
-                title={isPlaying ? "Pause Demonstration" : "Play Demonstration"}
-              >
-                {isPlaying ? "⏸ Pause" : "▶ Play"}
-              </button>
-
-              <button
-                type="button"
-                className="control-btn replay-btn"
-                onClick={() => {
-                  if (videoRef.current) {
-                    videoRef.current.currentTime = 0;
-                    videoRef.current.play().catch(() => {});
-                  }
-                  setIsPlaying(true);
-                }}
-                title="Restart movement demonstration"
-              >
-                ↺ Restart
-              </button>
-            </div>
-
-            {/* Playback Speed Controls */}
-            <div className="speed-group">
-              <span className="control-label">Speed:</span>
-              {[0.5, 1.0, 1.5].map((spd) => (
-                <button
-                  key={spd}
-                  className={`speed-btn ${playbackSpeed === spd ? "active" : ""}`}
-                  onClick={() => setPlaybackSpeed(spd)}
-                  title={`${spd}x Speed`}
-                >
-                  {spd}x
-                </button>
-              ))}
-            </div>
-
-            {/* Next exercise quick control */}
+          <div className="rest-right">
             <button
               type="button"
-              className="control-btn next-quick-btn"
-              onClick={handleNextExercise}
+              className="btn btn-primary btn-skip-rest"
+              onClick={() => {
+                setIsRestActive(false);
+                setRestSeconds(30);
+                if (nextExercise) {
+                  setExerciseIndex(safeIndex + 1);
+                }
+              }}
             >
-              {safeIndex === currentPlaylist.length - 1 ? "Review 🏁" : "Next ⏭"}
+              Skip Rest &amp; Continue →
             </button>
           </div>
         </section>
+      )}
 
-        {/* Right Column: Interactive Tracker & Form Instructions */}
-        <section className="tracker-card">
-          {/* Keyed Metric Tracker sub-component */}
-          <ExerciseMetricTracker
-            key={currentExercise.id}
-            exercise={currentExercise}
-            onComplete={handleExerciseComplete}
-          />
-
-          {/* Stepper Navigation Buttons */}
-          <div className="stepper-actions">
-            <button
-              type="button"
-              className="stepper-nav-btn prev"
-              onClick={handlePrevExercise}
-              disabled={safeIndex === 0}
-            >
-              ⏮ Previous
-            </button>
-
-            <button
-              type="button"
-              className={`mark-complete-btn ${isCurrentCompleted ? "completed" : ""}`}
-              onClick={() => handleExerciseComplete(currentExercise.id)}
-            >
-              {isCurrentCompleted ? "✓ Exercise Completed" : "Mark Exercise Complete"}
-            </button>
-
-            <button
-              type="button"
-              className="stepper-nav-btn next"
-              onClick={handleNextExercise}
-            >
-              {safeIndex === currentPlaylist.length - 1 ? "Finish 🏁" : "Next ⏭"}
-            </button>
-          </div>
-
-          {/* Technique & Form Guide */}
-          <div className="technique-guide">
-            <h3>Movement & Technique Guide</h3>
-
-            <div className="technique-section">
-              <span className="technique-label">Starting Position</span>
-              <p className="technique-desc">{details.startingPosition}</p>
-            </div>
-
-            <div className="technique-section">
-              <span className="technique-label">Complete Movement Sequence</span>
-              <ol className="step-list">
-                {details.steps.map((st, i) => (
-                  <li key={i}>{st}</li>
-                ))}
-              </ol>
-            </div>
-
-            <div className="technique-section callout tip">
-              <span className="callout-icon">💡</span>
-              <div>
-                <strong>Form Cue:</strong>
-                <p>{details.tip}</p>
-              </div>
-            </div>
-
-            {details.mistake && (
-              <div className="technique-section callout warning">
-                <span className="callout-icon">⚠️</span>
-                <div>
-                  <strong>Common Mistake:</strong>
-                  <p>{details.mistake}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="muscles-section">
-              <span className="technique-label">Target Muscles</span>
-              <div className="muscle-tags">
-                {details.muscles.map((m) => (
-                  <span key={m} className="muscle-tag">
-                    {m}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
+      {/* Main Active Exercise Panel (Cleanly keyed by currentExercise.id) */}
+      <ActiveExercisePanel
+        key={currentExercise.id}
+        currentExercise={currentExercise}
+        selectedLevel={selectedLevel}
+        currentCategoryData={currentCategoryData}
+        isCurrentCompleted={isCurrentCompleted}
+        canGoPrev={safeIndex > 0}
+        isLastExercise={safeIndex === currentPlaylist.length - 1}
+        onPrev={handlePrevExercise}
+        onNext={handleNextExercise}
+        onComplete={handleExerciseComplete}
+      />
 
       {/* Workout Completion Summary Modal */}
       {showSummary && (
-        <div className="modal-backdrop">
-          <div className="summary-modal">
-            <div className="celebrate-icon">🎉</div>
-            <h2>Workout Session Completed!</h2>
-            <p className="summary-subtitle">
-              All exercises in the <strong>{activeCategoryKey}</strong> workout have been
-              performed!
+        <div className="summary-modal-backdrop">
+          <div className="summary-modal-card">
+            <div className="modal-icon-header">🎉</div>
+            <h2 className="modal-header-title">{selectedLevel} Routine Completed!</h2>
+            <p className="modal-subtitle">
+              Outstanding commitment! You completed your exercises with controlled cadence and verified AI human fitness trainer demonstrations.
             </p>
 
             <div className="summary-stats-grid">
               <div className="summary-stat-box">
-                <span className="stat-label">Category</span>
-                <span className="stat-value">{activeCategoryKey}</span>
+                <span className="stat-label">LEVEL</span>
+                <strong className="stat-val">{selectedLevel}</strong>
               </div>
               <div className="summary-stat-box">
-                <span className="stat-label">Exercises Done</span>
-                <span className="stat-value">
-                  {
-                    currentPlaylist.filter(
-                      (e) =>
-                        sessionCompletedIds.has(e.id) ||
-                        sessionCompletedIds.has(e.name)
-                    ).length
-                  }{" "}
-                  / {currentPlaylist.length}
-                </span>
+                <span className="stat-label">COMPLETED</span>
+                <strong className="stat-val">
+                  {completedInLevel.length}/{currentPlaylist.length}
+                </strong>
               </div>
               <div className="summary-stat-box">
-                <span className="stat-label">Total Time</span>
-                <span className="stat-value">{formatTime(sessionElapsedTime)}</span>
+                <span className="stat-label">ACTIVE TIME</span>
+                <strong className="stat-val">{formatTime(sessionElapsedTime)}</strong>
               </div>
               <div className="summary-stat-box">
-                <span className="stat-label">Calories Burned</span>
-                <span className="stat-value">
-                  {currentPlaylist.reduce((acc, ex) => {
-                    return sessionCompletedIds.has(ex.id) ||
-                      sessionCompletedIds.has(ex.name)
-                      ? acc + (ex.calories || 8)
-                      : acc;
-                  }, 0)}{" "}
-                  kcal
-                </span>
+                <span className="stat-label">ENERGY BURNED</span>
+                <strong className="stat-val text-rose">
+                  ~{completedInLevel.reduce((acc, ex) => acc + (ex.calories || 8), 0)} kcal
+                </strong>
               </div>
             </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions-group">
               <button
                 type="button"
-                className="modal-save-btn"
-                onClick={handleSaveToHistory}
-                disabled={hasSavedHistory}
+                className="btn btn-primary"
+                onClick={() => {
+                  handleFinishAndSave();
+                  if (onBack) onBack();
+                }}
               >
-                {hasSavedHistory
-                  ? "✓ Saved to Workout History"
-                  : "💾 Save to FitTrack Workout History"}
+                💾 Save &amp; Return to Tracker
               </button>
               <button
                 type="button"
-                className="modal-close-btn"
+                className="btn btn-outline"
                 onClick={() => setShowSummary(false)}
               >
                 Review Exercises

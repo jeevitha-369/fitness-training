@@ -7,13 +7,29 @@ import Progress from "./pages/Progress";
 import WorkoutHistory from "./pages/WorkoutHistory";
 import Profile from "./pages/Profile";
 import ExerciseGuide from "./components/ExerciseGuide";
+import DietPlan from "./pages/DietPlan";
+import AuthPage from "./pages/AuthPage";
+import { getCurrentSession, clearCurrentSession } from "./utils/authUtils";
 import { WORKOUT_CATEGORIES_DATA, findExerciseByStableId } from "./data/workoutData";
 import "./App.css";
+
+const VALID_PAGES = [
+  "dashboard",
+  "workouts",
+  "tracker",
+  "exerciseGuide",
+  "dietPlan",
+  "progress",
+  "history",
+  "profile",
+  "auth",
+];
 
 export default function App() {
   // =========================
   // ROUTING & NAVIGATION WITH HASH SUPPORT
   // =========================
+
   const getInitialPage = () => {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
@@ -22,16 +38,7 @@ export default function App() {
       }
       const rawHash = window.location.hash.replace("#", "");
       const cleanHash = rawHash.split("?")[0];
-      const validPages = [
-        "dashboard",
-        "workouts",
-        "tracker",
-        "exerciseGuide",
-        "progress",
-        "history",
-        "profile",
-      ];
-      if (validPages.includes(cleanHash)) return cleanHash;
+      if (VALID_PAGES.includes(cleanHash)) return cleanHash;
     }
     return localStorage.getItem("fittrack_active_page") || "dashboard";
   };
@@ -47,8 +54,6 @@ export default function App() {
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
-
-  
 
   // =========================
   // WORKOUT SELECTION
@@ -68,7 +73,11 @@ export default function App() {
         if (found) return found.category.name;
       }
     }
-    return localStorage.getItem("selectedWorkout") || "Beginner";
+    const saved = localStorage.getItem("selectedWorkout");
+    if (saved && ["Beginner", "Intermediate", "Advanced"].includes(saved)) {
+      return saved;
+    }
+    return "Beginner";
   });
 
   useEffect(() => {
@@ -126,16 +135,7 @@ export default function App() {
           return;
         }
       }
-      const valid = [
-        "dashboard",
-        "workouts",
-        "tracker",
-        "exerciseGuide",
-        "progress",
-        "history",
-        "profile",
-      ];
-      if (valid.includes(cleanHash)) {
+      if (VALID_PAGES.includes(cleanHash)) {
         setPage(cleanHash);
       }
     };
@@ -144,35 +144,25 @@ export default function App() {
   }, []);
 
   // =========================
-  // COMPLETED EXERCISES (PERSISTENT STABLE IDS)
+  // PERSISTED FITNESS STATE
   // =========================
   const [completedExercises, setCompletedExercises] = useState(() => {
     try {
       const saved = localStorage.getItem("completedExercises");
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : [];
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
 
   useEffect(() => {
-    localStorage.setItem(
-      "completedExercises",
-      JSON.stringify(completedExercises)
-    );
+    localStorage.setItem("completedExercises", JSON.stringify(completedExercises));
   }, [completedExercises]);
 
-  // =========================
-  // WORKOUT HISTORY
-  // =========================
   const [history, setHistory] = useState(() => {
     try {
       const saved = localStorage.getItem("workoutHistory");
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : [];
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
@@ -182,24 +172,50 @@ export default function App() {
     localStorage.setItem("workoutHistory", JSON.stringify(history));
   }, [history]);
 
-  // =========================
-  // USER PROFILE SETTINGS
-  // =========================
+  // Profile preferences
   const [profileName, setProfileName] = useState(() => {
     return localStorage.getItem("profileName") || "Jeevi D";
   });
-
   const [fitnessLevel, setFitnessLevel] = useState(() => {
-    return localStorage.getItem("fitnessLevel") || "Beginner";
+    const lvl = localStorage.getItem("fitnessLevel");
+    return lvl && ["Beginner", "Intermediate", "Advanced"].includes(lvl) ? lvl : "Beginner";
   });
-
   const [fitnessGoal, setFitnessGoal] = useState(() => {
     return localStorage.getItem("fitnessGoal") || "Stay Active & Build Strength";
   });
-
   const [dailyTargetMinutes, setDailyTargetMinutes] = useState(() => {
     return Number(localStorage.getItem("dailyTargetMinutes")) || 25;
   });
+
+  // Theme (light / dark)
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("fittrack_theme") || "light";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("fittrack_theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
+  // Toast feedback
+  const [toastMessage, setToastMessage] = useState("");
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(""), 2600);
+  };
+
+  // Dietary Preference (veg / nonveg)
+  const [dietaryPreference, setDietaryPreference] = useState(() => {
+    return localStorage.getItem("dietaryPreference") || "veg";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("dietaryPreference", dietaryPreference);
+  }, [dietaryPreference]);
 
   useEffect(() => {
     localStorage.setItem("profileName", profileName);
@@ -207,6 +223,28 @@ export default function App() {
     localStorage.setItem("fitnessGoal", fitnessGoal);
     localStorage.setItem("dailyTargetMinutes", String(dailyTargetMinutes));
   }, [profileName, fitnessLevel, fitnessGoal, dailyTargetMinutes]);
+
+  // =========================
+  // FRONTEND DEMO AUTHENTICATION SESSION
+  // =========================
+  const [currentUser, setCurrentUser] = useState(() => {
+    return getCurrentSession();
+  });
+
+  const handleLoginSuccess = (session) => {
+    setCurrentUser(session);
+    if (session.name) setProfileName(session.name);
+    if (session.fitnessLevel) {
+      setFitnessLevel(session.fitnessLevel);
+      setSelectedWorkout(session.fitnessLevel);
+    }
+  };
+
+  const handleLogout = () => {
+    clearCurrentSession();
+    setCurrentUser(null);
+    setPage("auth");
+  };
 
   // =========================
   // HANDLERS
@@ -229,18 +267,30 @@ export default function App() {
     setPage("tracker");
   };
 
-  // Open guidance for specific exercise
-  const handleOpenExerciseGuide = (exercise) => {
+  // Open guidance for specific exercise (guarantees matching level is selected)
+  const handleOpenExerciseGuide = (exercise, planName) => {
+    let resolvedPlan = planName;
+    if (!resolvedPlan && exercise?.id) {
+      const match = findExerciseByStableId(exercise.id);
+      if (match?.category?.name) {
+        resolvedPlan = match.category.name;
+      }
+    }
+    if (resolvedPlan) {
+      setSelectedWorkout(resolvedPlan);
+    }
     setSelectedExercise(exercise);
     setPreviousPage(page === "exerciseGuide" ? "tracker" : page);
     setPage("exerciseGuide");
   };
 
-  // Open guidance for a full plan (defaults to first exercise)
-  const handleOpenGuideForPlan = (planName) => {
+  // Open guidance for a full plan (defaults to first exercise or specific)
+  const handleOpenGuideForPlan = (planName, specificExercise) => {
     setSelectedWorkout(planName);
     const cat = WORKOUT_CATEGORIES_DATA[planName];
-    if (cat && cat.exercises && cat.exercises.length > 0) {
+    if (specificExercise) {
+      setSelectedExercise(specificExercise);
+    } else if (cat && cat.exercises && cat.exercises.length > 0) {
       setSelectedExercise(cat.exercises[0]);
     }
     setPreviousPage("workouts");
@@ -252,7 +302,6 @@ export default function App() {
 
   const handleFinishWorkout = (summary) => {
     const now = Date.now();
-    // Debounce protection: ignore duplicate requests within 4 seconds
     if (now - lastSavedTimestamp < 4000) {
       return;
     }
@@ -327,6 +376,8 @@ export default function App() {
     if (newProfile.fitnessGoal) setFitnessGoal(newProfile.fitnessGoal);
     if (newProfile.dailyTargetMinutes)
       setDailyTargetMinutes(newProfile.dailyTargetMinutes);
+    if (newProfile.dietaryPreference)
+      setDietaryPreference(newProfile.dietaryPreference);
   };
 
   // Clear all local storage data
@@ -338,6 +389,7 @@ export default function App() {
     localStorage.removeItem("completedExercises");
     localStorage.removeItem("workoutHistory");
     localStorage.removeItem("selectedWorkout");
+    localStorage.removeItem("selectedExercise");
   };
 
   return (
@@ -346,11 +398,13 @@ export default function App() {
       <Navbar
         activePage={page}
         onNavigate={setPage}
-        isLoggedIn={true}
-        onLogout={() => setPage("dashboard")}
+        currentUser={currentUser}
+        onLogout={handleLogout}
         profileName={profileName}
         fitnessLevel={fitnessLevel}
         historyCount={history.length}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Main Page Routing */}
@@ -394,9 +448,17 @@ export default function App() {
 
         {page === "exerciseGuide" && (
           <ExerciseGuide
+            key={`${selectedWorkout}-${selectedExercise?.id || "default"}`}
             exercise={selectedExercise || exercises[0]}
             level={selectedWorkout}
             category={selectedWorkout}
+            onLevelChange={(lvl) => {
+              setSelectedWorkout(lvl);
+              const cat = WORKOUT_CATEGORIES_DATA[lvl];
+              if (cat?.exercises?.length > 0) {
+                setSelectedExercise(cat.exercises[0]);
+              }
+            }}
             onBack={() => setPage(previousPage || "tracker")}
             onComplete={(exerciseId) => {
               if (exerciseId) {
@@ -409,6 +471,20 @@ export default function App() {
               handleFinishWorkout(summaryData);
             }}
             completedExercises={completedExercises}
+          />
+        )}
+
+        {page === "dietPlan" && (
+          <DietPlan
+            activeLevel={selectedWorkout}
+            dietaryPreference={dietaryPreference}
+            onSelectLevel={(lvl) => {
+              setSelectedWorkout(lvl);
+              setFitnessLevel(lvl);
+            }}
+            onDietPreferenceChange={setDietaryPreference}
+            onNavigate={setPage}
+            showToast={showToast}
           />
         )}
 
@@ -436,22 +512,43 @@ export default function App() {
             fitnessLevel={fitnessLevel}
             fitnessGoal={fitnessGoal}
             dailyTargetMinutes={dailyTargetMinutes}
+            dietaryPreference={dietaryPreference}
             workoutHistory={history}
             completedExercises={completedExercises}
+            currentUser={currentUser}
             onSaveProfile={handleSaveProfile}
             onClearAllData={handleClearAllData}
+            onLogout={handleLogout}
+            onNavigate={setPage}
+          />
+        )}
+
+        {page === "auth" && (
+          <AuthPage
+            currentUser={currentUser}
+            onLoginSuccess={handleLoginSuccess}
+            onLogout={handleLogout}
+            onNavigate={setPage}
           />
         )}
       </main>
+
+      {/* Global Toast Notification */}
+      {toastMessage && (
+        <div className="fittrack-toast-banner" role="status" aria-live="polite">
+          <span className="toast-icon">✓</span>
+          <span className="toast-msg">{toastMessage}</span>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="fittrack-footer">
         <div className="footer-content">
           <div className="footer-left">
-            <strong>FitTrack Pro</strong> • Advanced Personal Fitness &amp; Kinetic Form System
+            <strong>FitTrack Pro</strong> • Verified Online Human Exercise Video Guides &amp; Indian Diet Plans
           </div>
           <div className="footer-right">
-            <span>Client-Side Local Storage • Verified Demonstrations &amp; Kinematic Guidance</span>
+            <span>Client-Side Local Storage • 3 Core Levels: Beginner, Intermediate, Advanced</span>
           </div>
         </div>
       </footer>

@@ -8,6 +8,7 @@ export default function ExerciseGuide({
   onComplete,
   onSaveWorkout,
   completedExercises = [],
+  onLevelChange,
 }) {
   return (
     <WorkoutGuidance
@@ -15,6 +16,7 @@ export default function ExerciseGuide({
       initialLevel={level}
       initialCategory={category}
       onBack={onBack}
+      onLevelChange={onLevelChange}
       onCompleteExercise={(name) => {
         if (onComplete) onComplete(name);
       }}

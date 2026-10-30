@@ -3,19 +3,24 @@ import { useState } from "react";
 export default function Navbar({
   activePage,
   onNavigate,
+  currentUser,
+  onLogout,
   profileName,
   fitnessLevel,
   historyCount = 0,
+  theme = "light",
+  onToggleTheme,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "workouts", label: "Workout Plans", icon: "📋" },
-    { id: "tracker", label: "Exercise Tracker", icon: "🎯" },
+    { id: "workouts", label: "Workouts", icon: "📋" },
+    { id: "tracker", label: "Tracker", icon: "🎯" },
     { id: "exerciseGuide", label: "Workout Guide", icon: "🎥" },
+    { id: "dietPlan", label: "Diet Plan", icon: "🥗" },
     { id: "progress", label: "Progress", icon: "📈" },
-    { id: "history", label: "Workout History", icon: "⏱️" },
+    { id: "history", label: "History", icon: "⏱️" },
     { id: "profile", label: "Profile", icon: "👤" },
   ];
 
@@ -32,6 +37,14 @@ export default function Navbar({
     }
     return name.slice(0, 2).toUpperCase();
   };
+
+  const displayName = currentUser?.isLoggedIn
+    ? currentUser.name
+    : profileName || "Jeevi D";
+
+  const displayLevel = currentUser?.isLoggedIn
+    ? currentUser.fitnessLevel || fitnessLevel || "Beginner"
+    : fitnessLevel || "Beginner";
 
   return (
     <header className="fittrack-navbar">
@@ -66,7 +79,7 @@ export default function Navbar({
           {mobileMenuOpen ? "✕" : "☰"}
         </button>
 
-        {/* Desktop Navigation */}
+        {/* Desktop & Mobile Navigation Links */}
         <nav className={`nav-links ${mobileMenuOpen ? "open" : ""}`}>
           {navItems.map((item) => {
             const isActive = activePage === item.id;
@@ -82,27 +95,113 @@ export default function Navbar({
                 {item.id === "history" && historyCount > 0 && (
                   <span className="nav-badge">{historyCount}</span>
                 )}
+                {item.id === "dietPlan" && (
+                  <span className="nav-sub-badge">NEW</span>
+                )}
               </button>
             );
           })}
+
+          {/* Mobile-only controls inside drawer */}
+          <div className="mobile-auth-row">
+            {onToggleTheme && (
+              <button
+                type="button"
+                className="theme-toggle-btn mobile-theme-btn"
+                onClick={onToggleTheme}
+                aria-label="Toggle light and dark theme"
+              >
+                {theme === "dark" ? "☀️ Switch to Light Mode" : "🌙 Switch to Dark Mode"}
+              </button>
+            )}
+            {currentUser?.isLoggedIn ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger mobile-logout-btn"
+                onClick={() => {
+                  onLogout();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                🔒 Sign Out ({currentUser.email})
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary mobile-login-btn"
+                onClick={() => handleNavClick("auth")}
+              >
+                🔑 Sign In / Register
+              </button>
+            )}
+          </div>
         </nav>
 
-        {/* User Status / Quick Chip */}
+        {/* User Status / Quick Chip, Theme Toggle & Auth Button */}
         <div className="navbar-right">
-          <button
-            type="button"
-            className="user-profile-chip"
-            onClick={() => handleNavClick("profile")}
-            title="Open Profile Settings"
-          >
-            <div className="avatar-circle">
-              {getInitials(profileName)}
+          {onToggleTheme && (
+            <button
+              type="button"
+              className="theme-toggle-btn"
+              onClick={onToggleTheme}
+              title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label="Toggle color theme"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+          )}
+          {currentUser?.isLoggedIn ? (
+            <div className="nav-auth-logged-in-wrap">
+              <button
+                type="button"
+                className="user-profile-chip"
+                onClick={() => handleNavClick("profile")}
+                title={`Signed in as ${currentUser.email}. Click for Profile Settings.`}
+              >
+                <div className="avatar-circle">
+                  {getInitials(displayName)}
+                </div>
+                <div className="user-info-text">
+                  <span className="user-name-display">{displayName}</span>
+                  <span className="user-level-badge">{displayLevel}</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="navbar-logout-btn"
+                onClick={onLogout}
+                title="Sign out of demo session (workout history is preserved)"
+              >
+                Sign Out
+              </button>
             </div>
-            <div className="user-info-text">
-              <span className="user-name-display">{profileName || "Jeevi D"}</span>
-              <span className="user-level-badge">{fitnessLevel || "Beginner"}</span>
+          ) : (
+            <div className="nav-auth-logged-out-wrap">
+              <button
+                type="button"
+                className="user-profile-chip guest-chip"
+                onClick={() => handleNavClick("profile")}
+                title="Guest Mode • Click for Profile"
+              >
+                <div className="avatar-circle guest-avatar">
+                  {getInitials(displayName)}
+                </div>
+                <div className="user-info-text">
+                  <span className="user-name-display">{displayName}</span>
+                  <span className="user-level-badge">{displayLevel}</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary nav-signin-btn"
+                onClick={() => handleNavClick("auth")}
+              >
+                Sign In
+              </button>
             </div>
-          </button>
+          )}
         </div>
       </div>
     </header>
